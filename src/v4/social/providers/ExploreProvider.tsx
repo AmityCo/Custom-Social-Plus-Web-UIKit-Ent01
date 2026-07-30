@@ -5,6 +5,7 @@ import { useTrendingCommunitiesCollection } from '~/v4/core/hooks/collections/us
 import { usePinnedCommunities, EXPLORE_PINNED_TAG } from '~/v4/social/hooks/usePinnedCommunities';
 import useSDK from '~/v4/core/hooks/useSDK';
 import { signalFeedRefresh } from '~/v4/core/stores/pendingVisitorJoin';
+import { joinLiveCommunityWithRetry } from '~/v4/core/utils/joinWithRetry';
 
 type ExploreContextType = {
   fetchTrendingCommunities: () => void;
@@ -135,18 +136,10 @@ export const ExploreProvider: React.FC<ExploreProviderProps> = ({ children }) =>
     const toJoin = pinnedCommunities.filter((community) => !community.isJoined);
     if (toJoin.length === 0) return;
 
-    const joins = toJoin.map((community) => {
-      try {
-        // Each join is isolated — one failure (transient error) must not affect
-        // the others.
-        return Promise.resolve(community.join()).then(
-          () => true,
-          () => false,
-        );
-      } catch {
-        return Promise.resolve(false);
-      }
-    });
+    // Each join is isolated — one failure (transient error) must not affect the
+    // others — and retries recoverable failures with backoff, since a join
+    // attempted right after sign-in can hit a token still propagating.
+    const joins = toJoin.map((community) => joinLiveCommunityWithRetry(community));
 
     // Once the joins settle, pulse a feed-refresh signal so the newsfeed shows
     // posts from the newly joined pinned communities without a manual reload.

@@ -1,5 +1,6 @@
 import { CommunityRepository } from '@amityco/ts-sdk';
 import useCommunitiesCollection from '~/v4/social/hooks/collections/useCommunitiesCollection';
+import { joinCommunityWithRetry } from '~/v4/core/utils/joinWithRetry';
 
 // Communities tagged with this exact string are "pinned" — an admin-curated set
 // featured at the top of Explore and auto-joined for every user. The tag is set
@@ -36,12 +37,9 @@ export const joinPinnedCommunities = (): Promise<number> =>
         if (toJoin.length === 0) return resolve(0);
 
         Promise.all(
-          toJoin.map((community) =>
-            CommunityRepository.joinCommunity(community.communityId).then(
-              () => true,
-              () => false, // ignore individual failures (transient / permission)
-            ),
-          ),
+          // Retries recoverable failures with backoff; individual permanent
+          // failures (permission) still resolve false rather than rejecting.
+          toJoin.map((community) => joinCommunityWithRetry(community.communityId)),
         ).then((results) => resolve(results.filter(Boolean).length));
       },
     );

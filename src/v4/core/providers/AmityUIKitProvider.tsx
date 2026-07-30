@@ -45,14 +45,16 @@ import { SearchResultProvider } from '~/v4/social/providers/SearchResultProvider
 import { GlobalBan } from '~/v4/social/internal-components/GlobalBan';
 import { VisitorUsageLimitPage } from '~/v4/social/pages/VisitorUsageLimitPage';
 import { ERROR_RESPONSE } from '~/v4/social/constants/errorResponse';
-import { Client, CommunityRepository, UserTypeEnum } from '@amityco/ts-sdk';
+import { Client, UserTypeEnum } from '@amityco/ts-sdk';
 import { FailedToShow } from '~/v4/social/internal-components/FailedToShow';
 import { UserCacheProvider } from '~/v4/core/providers/UserCacheProvider';
 import {
-  consumePendingVisitorJoin,
+  peekPendingVisitorJoin,
+  clearPendingVisitorJoin,
   beginVisitorAutoJoin,
   completeVisitorAutoJoin,
 } from '~/v4/core/stores/pendingVisitorJoin';
+import { joinCommunityWithOutcome } from '~/v4/core/utils/joinWithRetry';
 
 const InternalComponent = ({
   apiKey,
@@ -85,12 +87,23 @@ const InternalComponent = ({
   const [isUserDeleted, setIsUserDeleted] = useState<boolean>(false);
   const [isVisitorUsageLimitReached, setIsVisitorUsageLimitReached] = useState<boolean>(false);
   const isVisitorUsageLimitReachedRef = useRef<boolean>(false);
+  const autoJoinInFlightRef = useRef<boolean>(false);
 
   const sdkContextValue: SDKContextType = useMemo(() => {
     if (!client) return initialSDKContext;
 
     const currentUser = Client.getCurrentUser();
-    const userType = Client.getCurrentUserType();
+
+    // Throws ('Connect client first') if the user type is not populated yet.
+    // Treating that as visitor keeps the read-only guards on (the safe default —
+    // it never grants write affordances the session may not have); a later
+    // re-render recomputes this once the type is known.
+    let userType: ReturnType<typeof Client.getCurrentUserType> | undefined;
+    try {
+      userType = Client.getCurrentUserType();
+    } catch {
+      userType = undefined;
+    }
 
     return {
       client,
@@ -163,11 +176,29 @@ const InternalComponent = ({
   // is a no-op unless there is a pending id AND the session is now signed-in —
   // so a reconnect as a visitor never triggers it.
   const autoJoinPendingCommunity = () => {
-    const isSignedIn = Client.getCurrentUserType() === UserTypeEnum.SIGNED_IN;
+    // getCurrentUserType() THROWS ('Connect client first') when the session is
+    // established but the user type has not been populated yet. Returning early
+    // on a throw — rather than letting it escape — keeps the exception from
+    // aborting the caller (which would also skip the host's onConnected below);
+    // the next connect event runs this again once the type is available.
+    let isSignedIn: boolean;
+    try {
+      isSignedIn = Client.getCurrentUserType() === UserTypeEnum.SIGNED_IN;
+    } catch {
+      return;
+    }
     if (!isSignedIn) return;
 
-    const pendingCommunityId = consumePendingVisitorJoin();
+    // Peek, don't consume: the intent must survive a failed attempt so a later
+    // connect can retry it. It is cleared only after the join is confirmed.
+    const pendingCommunityId = peekPendingVisitorJoin();
     if (!pendingCommunityId) return;
+
+    // onConnected can fire again (reconnect) while a join is still in flight.
+    // Since the id is no longer cleared up-front, that would double-join without
+    // this guard.
+    if (autoJoinInFlightRef.current) return;
+    autoJoinInFlightRef.current = true;
 
     // Enter the loading state before the network call so a newsfeed mounting
     // during the transition waits rather than rendering the pre-join feed.
@@ -175,24 +206,27 @@ const InternalComponent = ({
 
     // We only have the communityId here (the intent is stored by id so it can
     // survive the visitor -> signed-in provider remount). The live community
-    // object's `.join()` is not available without first observing it, so we use
-    // the id-based repository call. It is marked "will be deprecated" but is the
-    // supported way to join purely by id and matches the React Native UIKit.
-    CommunityRepository.joinCommunity(pendingCommunityId)
-      .then(() => {
+    // object's `.join()` is not available without first observing it, so this
+    // goes through the id-based repository call, wrapped in backoff retries
+    // because a join issued moments after sign-in can race token propagation.
+    joinCommunityWithOutcome(pendingCommunityId)
+      .then(async ({ joined, retryable }) => {
+        // Drop the intent once the join succeeds, and also when it failed for a
+        // reason no retry can fix (needs approval, no permission) — otherwise it
+        // would linger in storage and re-attempt on every future connect. A
+        // merely transient failure is left in place so the next connect retries
+        // instead of silently never joining.
+        if (joined || !retryable) clearPendingVisitorJoin();
+        if (!joined) return;
+
         // The join request has resolved, but the global feed's server-side view
         // of the new membership can lag a beat behind. Wait briefly before
         // releasing the newsfeed so its first (and only) query already includes
         // the joined community's posts — no empty-then-populated flicker.
-        return new Promise<void>((resolve) => setTimeout(resolve, 1200));
-      })
-      .catch((autoJoinError: unknown) => {
-        // Best-effort: if the auto-join fails (e.g. private community requiring
-        // approval, or a transient network error) we simply drop it — the user
-        // can still join manually now that they are signed in.
-        console.error('Auto-join community failed:', autoJoinError);
+        await new Promise<void>((resolve) => setTimeout(resolve, 1200));
       })
       .finally(() => {
+        autoJoinInFlightRef.current = false;
         // Release the newsfeed whether the join succeeded or failed, so it never
         // stays stuck in a loading state.
         completeVisitorAutoJoin();

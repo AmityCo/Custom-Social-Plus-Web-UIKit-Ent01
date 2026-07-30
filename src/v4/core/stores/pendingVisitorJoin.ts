@@ -12,9 +12,40 @@
  * remount because it lives outside React entirely.
  *
  * This mirrors the React Native UIKit's `core/stores/pendingVisitorJoin` store.
+ *
+ * The value is ALSO mirrored to localStorage. A module singleton survives a React
+ * remount but not a page load, and on web the host's sign-in is frequently a full
+ * navigation (an OAuth redirect leaves the page entirely and comes back). Without
+ * the mirror, every redirect-based sign-in loses the join intent.
  */
 
-let pendingCommunityId: string | undefined;
+const STORAGE_KEY = 'amity.pendingVisitorJoin';
+
+// localStorage throws when access is denied (Safari private mode, blocked
+// third-party storage in an iframe). The in-memory value is the source of truth
+// and always works, so persistence degrades silently rather than breaking the
+// flow it exists to protect.
+const readStoredPendingJoin = (): string | undefined => {
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const writeStoredPendingJoin = (communityId?: string): void => {
+  try {
+    if (communityId) {
+      window.localStorage.setItem(STORAGE_KEY, communityId);
+    } else {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    // ignore — see readStoredPendingJoin
+  }
+};
+
+let pendingCommunityId: string | undefined = readStoredPendingJoin();
 
 /**
  * Record the community a visitor tried to join, to be auto-joined once they
@@ -22,16 +53,42 @@ let pendingCommunityId: string | undefined;
  */
 export const setPendingVisitorJoin = (communityId?: string): void => {
   pendingCommunityId = communityId;
+  writeStoredPendingJoin(communityId);
 };
 
 /**
- * Read and clear the recorded community id (consume-once). Returns `undefined`
- * when there is no pending join. Clearing on read prevents a stale intent from
- * re-triggering on a later reconnect / re-render.
+ * Read the recorded community id WITHOUT clearing it. Returns `undefined` when
+ * there is no pending join.
+ *
+ * Pair with `clearPendingVisitorJoin` after the join actually succeeds. Reading
+ * and clearing in one step means any transient failure (dropped request, token
+ * still propagating right after sign-in) discards the intent permanently and the
+ * user is silently never joined.
+ */
+export const peekPendingVisitorJoin = (): string | undefined => {
+  // Re-read storage when memory is empty: on a fresh page load after a
+  // redirect-based sign-in, this module was re-evaluated and only storage has it.
+  if (!pendingCommunityId) {
+    pendingCommunityId = readStoredPendingJoin();
+  }
+  return pendingCommunityId;
+};
+
+/** Drop the recorded join intent. Call only once the join has succeeded. */
+export const clearPendingVisitorJoin = (): void => {
+  pendingCommunityId = undefined;
+  writeStoredPendingJoin(undefined);
+};
+
+/**
+ * Read and clear the recorded community id (consume-once).
+ *
+ * @deprecated Prefer `peekPendingVisitorJoin` + `clearPendingVisitorJoin` so the
+ * intent is only dropped after a confirmed join. Kept for external callers.
  */
 export const consumePendingVisitorJoin = (): string | undefined => {
-  const id = pendingCommunityId;
-  pendingCommunityId = undefined;
+  const id = peekPendingVisitorJoin();
+  clearPendingVisitorJoin();
   return id;
 };
 
