@@ -237,8 +237,14 @@ const InternalComponent = ({
     const setup = async () => {
       let authToken;
 
-      if (getAuthToken) {
-        authToken = await getAuthToken();
+      // Only mint a token when there is a userId to mint it for. Without a
+      // userId the session logs in as a visitor (see connectAndLogin), which
+      // ignores authToken entirely — so calling the host's getAuthToken here
+      // is both useless and a likely error: a secure-mode token endpoint has
+      // no id to sign against yet and typically rejects, which would surface
+      // as a setup failure and block the visitor session from connecting.
+      if (getAuthToken && userId) {
+        authToken = await getAuthToken(userId.toString());
       }
 
       try {
@@ -269,11 +275,23 @@ const InternalComponent = ({
           displayName: displayName?.toString(),
           sessionHandler: {
             sessionWillRenewAccessToken: (renewal) => {
-              // Handle access token renewal
-              if (getAuthToken) {
-                getAuthToken().then((newToken) => {
-                  renewal.renewWithAuthToken(newToken);
-                });
+              // Handle access token renewal.
+              //
+              // A visitor session (no userId) renews without a token — asking
+              // the host to mint one has no id to key against and would reject.
+              // renewal MUST be called exactly once on every path, including
+              // when the host's mint fails: an unresolved renewal leaves the
+              // session unable to refresh, so fall back to a plain renew()
+              // rather than dropping the callback on a rejected promise.
+              if (getAuthToken && userId) {
+                getAuthToken(userId.toString())
+                  .then((newToken) => {
+                    renewal.renewWithAuthToken(newToken);
+                  })
+                  .catch((_error) => {
+                    console.error('Error renewing access token:', _error);
+                    renewal.renew();
+                  });
               } else {
                 renewal.renew();
               }

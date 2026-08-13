@@ -1,6 +1,6 @@
 {
   "name": "@amityco/web-social-uikit-ocean",
-  "version": "4.18.0-ocean-1",
+  "version": "4.18.0-ocean-2",
   "engines": {
     "node": ">=20",
     "pnpm": "9"
