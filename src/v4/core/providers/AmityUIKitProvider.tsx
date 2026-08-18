@@ -44,6 +44,7 @@ import { FeedScrollProvider } from '~/v4/core/providers/FeedScrollProvider';
 import { SearchResultProvider } from '~/v4/social/providers/SearchResultProvider';
 import { GlobalBan } from '~/v4/social/internal-components/GlobalBan';
 import { VisitorUsageLimitPage } from '~/v4/social/pages/VisitorUsageLimitPage';
+import { AppBootstrapSkeleton } from '~/v4/social/internal-components/AppBootstrapSkeleton';
 import { ERROR_RESPONSE } from '~/v4/social/constants/errorResponse';
 import { Client, UserTypeEnum } from '@amityco/ts-sdk';
 import { FailedToShow } from '~/v4/social/internal-components/FailedToShow';
@@ -353,7 +354,25 @@ const InternalComponent = ({
     );
   }
 
-  if (!client || isNetworkConfigLoading) return null;
+  // The session handshake (registerDevice → network config) has not finished, so
+  // there is no authenticated client to render a feed with yet. Show a skeleton
+  // instead of `null`: the wait is legitimate, but a blank page reads as a broken
+  // app — especially where round trips to the API region are slow.
+  //
+  // Rendered inside CustomizationProvider so it picks up the same theme CSS
+  // variables as the real UI (matching the VisitorUsageLimitPage branch above)
+  // and does not flash light-on-dark for dark-theme integrations. The skeleton
+  // reuses the app's existing sidebar/feed skeletons, so it is the same
+  // placeholder the user sees a moment later — no visual jump on handover.
+  if (!client || isNetworkConfigLoading) {
+    return (
+      <div className="asc-uikit">
+        <CustomizationProvider initialConfig={initialConfig}>
+          <AppBootstrapSkeleton />
+        </CustomizationProvider>
+      </div>
+    );
+  }
 
   return (
     <div className="asc-uikit">

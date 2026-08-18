@@ -1,0 +1,28 @@
+/*
+ * Wrapper for the boot-time loading state. The skeleton pieces themselves come
+ * from CommunitySideBar / SocialHomePage; the rules here only reproduce the
+ * sidebar's own frame (border, height, header padding), which normally lives on
+ * .communitySideBar and cannot be reused directly because the full sidebar
+ * component needs an SDK client.
+ */
+
+.appBootstrapSkeleton {
+  width: 100%;
+  height: 100vh;
+}
+
+.appBootstrapSkeleton__aside {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  border-right: 1px solid var(--asc-color-base-shade4);
+  background-color: var(--asc-color-background-default);
+}
+
+.appBootstrapSkeleton__asideHeader {
+  gap: 1rem;
+  padding: 1rem;
+  display: grid;
+  flex-shrink: 0;
+  min-width: 0;
+}
