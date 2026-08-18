@@ -6,7 +6,9 @@ import { ExploreCommunitiesButton } from '~/v4/social/elements/ExploreCommunitie
 import { CreateCommunityButton } from '~/v4/social/elements/CreateCommunityButton';
 import styles from './EmptyNewsFeed.module.css';
 import { useAmityComponent } from '~/v4/core/hooks/uikit';
-import { useNavigation } from '~/v4/core/providers/NavigationProvider';
+import { PageTypes, useNavigation } from '~/v4/core/providers/NavigationProvider';
+import { useLayoutContext } from '~/v4/social/providers/LayoutProvider';
+import { HomePageTab } from '~/v4/social/constants/HomePageTab';
 import { AmityCommunitySetupPageMode } from '~/v4/social/pages/CommunitySetupPage/CommunitySetupPage';
 import { Divider } from '~/v4/social/elements/Divider';
 import { useResponsive } from '~/v4/core/hooks/useResponsive';
@@ -19,7 +21,8 @@ interface EmptyNewsfeedProps {
 export function EmptyNewsfeed({ pageId = '*' }: EmptyNewsfeedProps) {
   const componentId = 'empty_newsfeed';
 
-  const { goToCreateCommunityPage } = useNavigation();
+  const { goToCreateCommunityPage, onChangePage } = useNavigation();
+  const { setActiveTab } = useLayoutContext();
 
   const { isExcluded, themeStyles, accessibilityId } = useAmityComponent({
     pageId,
@@ -45,7 +48,14 @@ export function EmptyNewsfeed({ pageId = '*' }: EmptyNewsfeedProps) {
           />
           <Description pageId={pageId} componentId={componentId} />
         </div>
-        <ExploreCommunitiesButton pageId={pageId} componentId={componentId} />
+        <ExploreCommunitiesButton
+          pageId={pageId}
+          componentId={componentId}
+          onClick={() => {
+            setActiveTab(HomePageTab.Explore);
+            onChangePage(PageTypes.SocialHomePage);
+          }}
+        />
         <CreateCommunityButton
           pageId={pageId}
           componentId={componentId}
