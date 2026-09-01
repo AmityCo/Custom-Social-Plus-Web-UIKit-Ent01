@@ -20,7 +20,7 @@
 }
 
 .timestamp {
-  font-family: var(--asc-text-global-font-family);
+  font-family: var(--asc-text-font-family-regular, var(--asc-text-global-font-family));
   color: var(--asc-color-base-shade2);
   font-size: 0.5rem;
   line-height: 0.75rem;

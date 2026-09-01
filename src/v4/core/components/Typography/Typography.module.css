@@ -1,54 +1,74 @@
+/*
+  Each variant reads the per-weight font-family variable matching its own
+  font-weight, set from the AmityUIKitProvider `fonts` prop (~/v4/core/fonts.ts).
+
+  The fallback is the literal 'Inter var', sans-serif rather than
+  var(--asc-text-global-font-family): this component's default has always been the
+  variable-font 'Inter var', which is a DIFFERENT family from that variable's
+  stack (inter, -apple-system, ...). Falling back to the literal keeps rendering
+  byte-identical when no `fonts` prop is passed. A configured general `fontFamily`
+  still reaches every variant, because it populates all five per-weight variables.
+*/
+
 .typography {
   margin: 0;
   padding: 0;
   color: inherit;
-  font-family: 'Inter var', sans-serif;
+  font-family: var(--asc-text-font-family-regular, 'Inter var', sans-serif);
 }
 
 .typography__headline {
   font-size: 1.25rem;
   line-height: 1.5rem;
   font-weight: 700;
+  font-family: var(--asc-text-font-family-bold, 'Inter var', sans-serif);
 }
 
 .typography__titleBold {
   font-size: 1rem;
   line-height: 1.5rem;
   font-weight: 600;
+  font-family: var(--asc-text-font-family-semi-bold, 'Inter var', sans-serif);
 }
 
 .typography__title {
   font-size: 1rem;
   line-height: 1.5rem;
   font-weight: 400;
+  font-family: var(--asc-text-font-family-regular, 'Inter var', sans-serif);
 }
 
 .typography__bodyBold {
   font-size: 0.875rem;
   line-height: 1.25rem;
   font-weight: 600;
+  font-family: var(--asc-text-font-family-semi-bold, 'Inter var', sans-serif);
 }
 
 .typography__body {
   font-size: 0.875rem;
   line-height: 1.25rem;
   font-weight: 400;
+  font-family: var(--asc-text-font-family-regular, 'Inter var', sans-serif);
 }
 
 .typography__captionBold {
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
+  font-family: var(--asc-text-font-family-semi-bold, 'Inter var', sans-serif);
 }
 
 .typography__caption {
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 400;
+  font-family: var(--asc-text-font-family-regular, 'Inter var', sans-serif);
 }
 
 .typography__captionSmall {
   font-size: 0.75rem;
   line-height: 0.75rem;
   font-weight: 400;
+  font-family: var(--asc-text-font-family-regular, 'Inter var', sans-serif);
 }

@@ -24,7 +24,7 @@ import {
 } from '~/v4/core/providers/CustomizationProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { PageBehavior, PageBehaviorProvider } from './PageBehaviorProvider';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AmityUIKitManager } from '~/v4/core/AmityUIKitManager';
 import { ConfirmProvider } from '~/v4/core/providers/ConfirmProvider';
 import { NotificationProvider, useNotifications } from '~/v4/core/providers/NotificationProvider';
@@ -45,7 +45,7 @@ import { SearchResultProvider } from '~/v4/social/providers/SearchResultProvider
 import { GlobalBan } from '~/v4/social/internal-components/GlobalBan';
 import { VisitorUsageLimitPage } from '~/v4/social/pages/VisitorUsageLimitPage';
 import { AppBootstrapSkeleton } from '~/v4/social/internal-components/AppBootstrapSkeleton';
-import { ERROR_RESPONSE } from '~/v4/social/constants/errorResponse';
+import { ERROR_CODE, ERROR_RESPONSE } from '~/v4/social/constants/errorResponse';
 import { Client, UserTypeEnum } from '@amityco/ts-sdk';
 import { FailedToShow } from '~/v4/social/internal-components/FailedToShow';
 import { UserCacheProvider } from '~/v4/core/providers/UserCacheProvider';
@@ -56,6 +56,16 @@ import {
   completeVisitorAutoJoin,
 } from '~/v4/core/stores/pendingVisitorJoin';
 import { joinCommunityWithOutcome } from '~/v4/core/utils/joinWithRetry';
+import { ErrorBoundary } from '~/v4/core/components/ErrorBoundary';
+import { type AmityFontConfig } from '~/v4/core/fonts';
+import {
+  type AmityErrorHandler,
+  errorMessage,
+  extractAmityCode,
+  releaseErrorHandler,
+  reportError,
+  setErrorHandler,
+} from '~/v4/core/stores/errorHandler';
 
 const InternalComponent = ({
   apiKey,
@@ -146,11 +156,29 @@ const InternalComponent = ({
 
   const onGlobalBanned = (payload: Amity.UserPayload) => {
     if (payload.users.find((user) => user.userId === userId)?.isGlobalBan) {
+      // `handled: true` — the GlobalBan screen replaces the UIKit's whole tree.
+      reportError({
+        source: 'auth',
+        message: 'The current user has been globally banned',
+        code: ERROR_RESPONSE.GLOBAL_BAN,
+        context: { userId, reason: 'globalBan' },
+        handled: true,
+      });
       setIsGlobalBanned(true);
     }
   };
 
   const onVisitorUsageLimitReached = () => {
+    // `handled: true` on both branches — either the host's own behavior handles
+    // it, or the UIKit shows VisitorUsageLimitPage.
+    reportError({
+      source: 'auth',
+      message: 'The visitor usage limit has been reached',
+      code: ERROR_CODE.VISITOR_USAGE_LIMIT,
+      context: { userId, reason: 'visitorUsageLimit' },
+      handled: true,
+    });
+
     if (pageBehavior?.AmityGlobalBehavior?.handleVisitorUsageLimitReached) {
       pageBehavior.AmityGlobalBehavior.handleVisitorUsageLimitReached();
     } else {
@@ -161,6 +189,13 @@ const InternalComponent = ({
 
   const onUserDeleted = (payload: Amity.UserPayload) => {
     if (payload.users.find((user) => user.userId === userId)?.isGlobalBan) {
+      // `handled: true` — the FailedToShow screen replaces the UIKit's tree.
+      reportError({
+        source: 'auth',
+        message: 'The current user has been deleted',
+        context: { userId, reason: 'userDeleted' },
+        handled: true,
+      });
       setIsUserDeleted(true);
     }
   };
@@ -245,7 +280,23 @@ const InternalComponent = ({
       // no id to sign against yet and typically rejects, which would surface
       // as a setup failure and block the visitor session from connecting.
       if (getAuthToken && userId) {
-        authToken = await getAuthToken(userId.toString());
+        try {
+          authToken = await getAuthToken(userId.toString());
+        } catch (_error) {
+          // Report, then re-throw so the failure keeps propagating exactly as it
+          // did before: this call sits outside the try/catch below, so a rejection
+          // here has always aborted setup silently. `handled: false` — nothing is
+          // shown to the user on this path.
+          reportError({
+            source: 'auth',
+            message: errorMessage(_error, 'Failed to mint an Amity auth token'),
+            code: extractAmityCode(_error),
+            cause: _error,
+            context: { userId, phase: 'getAuthToken' },
+            handled: false,
+          });
+          throw _error;
+        }
       }
 
       try {
@@ -291,6 +342,16 @@ const InternalComponent = ({
                   })
                   .catch((_error) => {
                     console.error('Error renewing access token:', _error);
+                    // Silent to the user — the session falls back to a plain
+                    // renew() below and the UI carries on — so `handled: false`.
+                    reportError({
+                      source: 'auth',
+                      message: errorMessage(_error, 'Failed to renew the Amity access token'),
+                      code: extractAmityCode(_error),
+                      cause: _error,
+                      context: { userId, phase: 'sessionWillRenewAccessToken' },
+                      handled: false,
+                    });
                     renewal.renew();
                   });
               } else {
@@ -323,6 +384,21 @@ const InternalComponent = ({
         }
       } catch (_error) {
         console.error('Error setting up AmityUIKitManager:', _error);
+
+        // The user sees something on both Error branches below (the GlobalBan
+        // screen, or an error toast), so those report `handled: true`. A non-Error
+        // throw falls through showing nothing at all — reported as unhandled.
+        const isSurfacedToUser = _error instanceof Error;
+
+        reportError({
+          source: 'auth',
+          message: errorMessage(_error, 'Failed to set up the Amity UIKit session'),
+          code: extractAmityCode(_error),
+          cause: _error,
+          context: { userId, phase: 'registerDevice' },
+          handled: isSurfacedToUser,
+        });
+
         if (_error instanceof Error) {
           if (_error.message.includes(ERROR_RESPONSE.GLOBAL_BAN)) {
             setIsGlobalBanned(true);
@@ -500,29 +576,143 @@ interface AmityUIKitProviderProps {
     overrides?: LocaleBundle;
     localeMap?: Record<string, LocaleBundle>;
   };
+  /**
+   * Font family configuration for the UIKit. Omit it and the UIKit keeps its own
+   * default font.
+   *
+   * - `fontFamily`: used for any weight with no more specific entry
+   * - `regular` / `medium` / `semiBold` / `bold` / `extraBold`: per-weight
+   *   families, applied to font-weight 400 / 500 / 600 / 700 / 800-900
+   *
+   * The shape matches the React Native UIKit's `AmityFontConfig`, so the same
+   * config object can be shared between both SDKs. Load the font itself as usual
+   * (a `@font-face` rule or a stylesheet link) — the UIKit only selects it.
+   *
+   * @example
+   *   fonts={{ fontFamily: 'Roboto' }}
+   * @example
+   *   fonts={{ fontFamily: 'Inter', semiBold: 'Inter SemiBold', bold: 'Inter Bold' }}
+   */
+  fonts?: AmityFontConfig;
+  /**
+   * Called whenever the UIKit encounters an error, for logging and crash
+   * reporting. Purely an observer: the UIKit still shows all of its own
+   * notifications, banners and fallback screens exactly as it does without it.
+   *
+   * `error.source` is one of `'render' | 'query' | 'mutation' | 'auth' | 'sdk'`,
+   * and `error.handled` is `true` when the UIKit already surfaced the failure to
+   * the user — so `handled: false` reports are the ones usually worth alerting on.
+   *
+   * @example
+   *   onError={(error) => console.warn(error.source, error.message)}
+   * @example
+   *   onError={(error) => {
+   *     if (!error.handled) Sentry.captureException(error.cause ?? error.message, {
+   *       tags: { source: error.source, code: error.code },
+   *       extra: error.context,
+   *     });
+   *   }}
+   */
+  onError?: AmityErrorHandler;
 }
 
-const queryClient = new QueryClient();
+// Cache-level error handlers, so every react-query read/write failure is reported
+// from one place instead of each call site having to opt in.
+//
+// `handled: false` on both: reaching the cache handler says nothing about whether
+// any UI surfaced the failure, and most of these are silent (a background refetch,
+// a retry that exhausted). Call sites that DO show something to the user report
+// their own `handled: true` alongside it.
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      reportError({
+        source: 'query',
+        message: errorMessage(error, 'An Amity UIKit query failed'),
+        code: extractAmityCode(error),
+        cause: error,
+        context: { queryKey: query?.queryKey },
+        handled: false,
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      reportError({
+        source: 'mutation',
+        message: errorMessage(error, 'An Amity UIKit mutation failed'),
+        code: extractAmityCode(error),
+        cause: error,
+        context: { mutationKey: mutation?.options?.mutationKey },
+        handled: false,
+      });
+    },
+  }),
+});
+
+/**
+ * Install the host's `onError` callback in the module-level registry.
+ *
+ * Registration happens DURING RENDER, not in an effect: React runs child effects
+ * before parent effects, so a login failure raised inside a child provider would
+ * fire before a parent effect had installed the handler — losing the first (and
+ * usually most useful) error. The ref guard keeps repeat renders from
+ * re-registering when the callback has not actually changed.
+ */
+const useErrorHandlerRegistration = (onError?: AmityErrorHandler) => {
+  const registeredHandlerRef = useRef<AmityErrorHandler | undefined>(undefined);
+  const hasRegisteredRef = useRef(false);
+
+  if (!hasRegisteredRef.current || registeredHandlerRef.current !== onError) {
+    hasRegisteredRef.current = true;
+    registeredHandlerRef.current = onError;
+    setErrorHandler(onError);
+  }
+
+  useEffect(() => {
+    // Re-assert the registration on mount.
+    //
+    // StrictMode (on by default in dev templates) runs mount -> unmount ->
+    // remount, and React 18 can remount an offscreen tree the same way. The
+    // unmount runs the cleanup below, which releases the handler — while the
+    // render-phase registration above does NOT re-run, because its refs survive
+    // the simulated remount. Without re-registering here the handler would stay
+    // cleared for the rest of the session and onError would never fire in dev.
+    const registrationId = setErrorHandler(onError);
+
+    // Release only THIS registration. `releaseErrorHandler` no-ops when the id
+    // is no longer the most recent, so a provider being swapped out cannot wipe
+    // the handler the incoming provider just installed (React renders the new
+    // tree before running the old tree's cleanup). Capturing the id in a local
+    // rather than a ref is what makes that guard meaningful — a ref would have
+    // been overwritten by the newer registration before this cleanup ran.
+    return () => releaseErrorHandler(registrationId);
+  }, [onError]);
+};
 
 const AmityUIKitProvider: React.FC<AmityUIKitProviderProps> = (props) => {
+  useErrorHandlerRegistration(props.onError);
+
   return (
-    <LocaleProvider
-      initialLocaleBundle={props.localization?.localeBundle}
-      initialOverrides={props.localization?.overrides}
-      localeMap={props.localization?.localeMap ?? defaultLocaleMap}
-    >
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider config={props.configs}>
-          <NotificationProvider>
-            <ConfirmProvider>
-              <InternalComponent {...props} />
-              <NotificationsContainer />
-              <ConfirmModal />
-            </ConfirmProvider>
-          </NotificationProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </LocaleProvider>
+    <ErrorBoundary>
+      <LocaleProvider
+        initialLocaleBundle={props.localization?.localeBundle}
+        initialOverrides={props.localization?.overrides}
+        localeMap={props.localization?.localeMap ?? defaultLocaleMap}
+      >
+        <QueryClientProvider client={queryClient}>
+          <ThemeProvider config={props.configs} fonts={props.fonts}>
+            <NotificationProvider>
+              <ConfirmProvider>
+                <InternalComponent {...props} />
+                <NotificationsContainer />
+                <ConfirmModal />
+              </ConfirmProvider>
+            </NotificationProvider>
+          </ThemeProvider>
+        </QueryClientProvider>
+      </LocaleProvider>
+    </ErrorBoundary>
   );
 };
 

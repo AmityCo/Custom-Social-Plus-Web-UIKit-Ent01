@@ -1,5 +1,6 @@
 import { CommunityRepository } from '@amityco/ts-sdk';
 import { ERROR_CODE, ERROR_RESPONSE } from '~/v4/social/constants/errorResponse';
+import { reportSwallowed } from '~/v4/core/stores/errorHandler';
 
 // Backoff delays between attempts: 3 attempts total, waiting 1s / 2s / 4s after
 // a recoverable failure. Chosen to span the window where a just-issued session
@@ -54,13 +55,13 @@ export const joinCommunityWithOutcome = async (communityId: string): Promise<Joi
       return { joined: true, retryable: false };
     } catch (error) {
       if (isNonRecoverable(error)) {
-        console.error('Join community failed (not retryable):', error);
+        reportSwallowed('Join community failed (not retryable)', error);
         return { joined: false, retryable: false };
       }
 
       const isLastAttempt = attempt === RETRY_DELAYS_MS.length - 1;
       if (isLastAttempt) {
-        console.error('Join community failed after all retries:', error);
+        reportSwallowed('Join community failed after all retries', error);
         // Exhausted, but the failure itself was transient — worth another try on
         // a later connect.
         return { joined: false, retryable: true };

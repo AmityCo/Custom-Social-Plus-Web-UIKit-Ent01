@@ -59,7 +59,7 @@
 }
 
 .timestamp {
-  font-family: var(--asc-text-global-font-family);
+  font-family: var(--asc-text-font-family-regular, var(--asc-text-global-font-family));
   color: var(--asc-color-base-shade2);
   margin-bottom: var(--asc-spacing-s1);
 

@@ -1,41 +1,54 @@
 @import url('./global.css');
 
+/*
+  Each class reads the per-weight font-family variable matching its own
+  font-weight (set from the AmityUIKitProvider `fonts` prop, see
+  ~/v4/core/fonts.ts), falling back to the general family when that weight has no
+  configured entry.
+*/
+
 .typography {
   padding: 0;
   margin: 0;
 }
 
 .typography-headings {
+  font-family: var(--asc-text-font-family-semi-bold, var(--asc-text-global-font-family));
   font-weight: var(--asc-text-font-weight-bold);
   font-size: var(--asc-text-font-size-lg);
   line-height: var(--asc-line-height-lg);
 }
 
 .typography-titles {
+  font-family: var(--asc-text-font-family-semi-bold, var(--asc-text-global-font-family));
   font-weight: var(--asc-text-font-weight-bold);
   font-size: var(--asc-text-font-size-md);
   line-height: var(--asc-line-height-md);
 }
 
 .typography-sub-title {
+  font-family: var(--asc-text-font-family-regular, var(--asc-text-global-font-family));
   font-weight: var(--asc-text-font-weight-normal);
   font-size: 0.8125rem;
   line-height: var(--asc-line-height-xs);
 }
 
 .typography-body {
+  font-family: var(--asc-text-font-family-regular, var(--asc-text-global-font-family));
   font-weight: var(--asc-text-font-weight-normal);
   font-size: var(--asc-text-font-size-sm);
   line-height: var(--asc-line-height-md);
 }
 
 .typography-body-bold {
+  font-family: var(--asc-text-font-family-semi-bold, var(--asc-text-global-font-family));
   font-weight: var(--asc-text-font-weight-bold);
   font-size: var(--asc-text-font-size-sm);
   line-height: var(--asc-line-height-md);
 }
 
 .typography-caption {
+  font-family: var(--asc-text-font-family-regular, var(--asc-text-global-font-family));
   font-size: 0.75rem;
   font-style: normal;
   font-weight: 400;
@@ -44,12 +57,14 @@
 }
 
 .typography-caption-bold {
+  font-family: var(--asc-text-font-family-semi-bold, var(--asc-text-global-font-family));
   font-weight: var(--asc-text-font-weight-bold);
   font-size: var(--asc-text-font-size-xs);
   line-height: var(--asc-line-height-xs);
 }
 
 .typography-headline {
+  font-family: var(--asc-text-font-family-bold, var(--asc-text-global-font-family));
   font-size: var(--asc-text-font-size-xl);
   line-height: var(--asc-line-height-xxl);
   font-weight: var(--asc-text-font-weight-headline);

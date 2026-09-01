@@ -6,6 +6,14 @@ export { PageRenderer as AmityPageRenderer } from '~/v4/core/providers';
 // v4
 export { AmityUIKitManager } from '~/v4/core/AmityUIKitManager';
 
+// v4 — AmityUIKitProvider configuration types
+export type { AmityFontConfig } from '~/v4/core/fonts';
+export type {
+  AmityUIKitError,
+  AmityErrorHandler,
+  AmityErrorSource,
+} from '~/v4/core/stores/errorHandler';
+
 // Chat v4
 
 export { ChatHeader as AmityLiveChatHeader } from '~/v4/chat/components/ChatHeader';

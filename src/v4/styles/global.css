@@ -8,7 +8,7 @@
 */
 @supports (font-variation-settings: normal) {
   :root {
-    font-family: 'Inter var', sans-serif;
+    font-family: var(--asc-text-font-family-regular, 'Inter var', sans-serif);
   }
 }
 
@@ -22,12 +22,35 @@
   /*
     Set the default font-family to 'Inter', with fallback to sans-serif.
     This ensures that the Inter font is used if available, otherwise, the browser's default sans-serif font will be used.
+
+    Read through --asc-text-font-family-regular so a host-configured `fonts`
+    family also reaches text that does NOT go through the Typography component.
+    Around 74 rules in the UIKit set a font-weight but no font-family (sidebar
+    menu labels, community names, ...) and inherit their family from here, so
+    without this they would stay on Inter while Typography text switched.
+    The variable is unset by default, so the literal below stays the default.
   */
-  font-family: Inter, sans-serif;
+  font-family: var(--asc-text-font-family-regular, Inter, sans-serif);
 
   /* Font */
   --asc-text-global-font-family: inter, -apple-system, blinkmacsystemfont, arial, sans-serif;
   --asc-text-global-font-style: normal;
+
+  /*
+    Per-weight font families, set from the AmityUIKitProvider `fonts` prop
+    (see ~/v4/core/fonts.ts). They are intentionally NOT declared here:
+
+      --asc-text-font-family-regular      (font-weight 400)
+      --asc-text-font-family-medium       (font-weight 500)
+      --asc-text-font-family-semi-bold    (font-weight 600)
+      --asc-text-font-family-bold         (font-weight 700)
+      --asc-text-font-family-extra-bold   (font-weight 800/900)
+
+    Leaving them undefined is what makes the feature additive. Typography rules
+    read them as `var(--asc-text-font-family-x, var(--asc-text-global-font-family))`,
+    so an unconfigured weight resolves through the second argument to the general
+    family above. Declaring them here would defeat that fallback.
+  */
 
   /* Font Sizes */
   --asc-text-font-size-xs: 0.75rem; /* 12px */

@@ -50,7 +50,7 @@
 
 .replyPlaceholderContainer {
   display: flex;
-  font-family: var(--asc-text-global-font-family);
+  font-family: var(--asc-text-font-family-regular, var(--asc-text-global-font-family));
   background-color: var(--asc-color-base-shade4);
   color: var(--asc-color-base-inverse);
   max-width: 100%;
@@ -105,7 +105,7 @@
 
 .mutedChannelContainer {
   display: flex;
-  font-family: var(--asc-text-global-font-family);
+  font-family: var(--asc-text-font-family-regular, var(--asc-text-global-font-family));
   background-color: var(--asc-color-base-shade4);
   color: var(--asc-color-base-shade1);
   max-width: 100%;

@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import { lighten, parseToHsl, darken, hslToColorString } from 'polished';
 import { Config, defaultConfig, GetConfigReturnValue } from './CustomizationProvider';
+import { type AmityFontConfig, resolveFontVariables } from '~/v4/core/fonts';
 
 const SHADE_PERCENTAGES = [0.25, 0.4, 0.5, 0.75];
 
@@ -86,6 +87,53 @@ export function useGenerateStylesShadeColors(config: GetConfigReturnValue) {
   return generatedColors as React.CSSProperties;
 }
 
+/**
+ * Apply the host's `fonts` config as CSS custom properties on the document root.
+ *
+ * Written to `:root` (not to the UIKit's own `.asc-uikit` wrapper) for two
+ * reasons: it is where `~/v4/styles/global.css` declares
+ * `--asc-text-global-font-family`, so this overrides the existing variable in
+ * the scope it was defined in; and the UIKit's overlays (react-aria popovers,
+ * modals, drawers) portal to `document.body`, outside the wrapper — a
+ * wrapper-scoped variable would leave all of their text on the default font.
+ *
+ * Only the variables the config actually resolves are written, and they are
+ * removed again on unmount, so a UIKit rendered without `fonts` leaves the
+ * document exactly as it found it.
+ */
+export function useFontFamilyVariables(fonts?: AmityFontConfig) {
+  const fontVariables = useMemo(
+    () => resolveFontVariables(fonts),
+    // Keyed on the config's VALUES rather than its object identity: hosts
+    // normally pass an inline literal (`fonts={{ fontFamily: 'Roboto' }}`), which
+    // is a fresh object on every render and would otherwise re-write every
+    // variable each time the provider re-renders.
+    [
+      fonts?.fontFamily,
+      fonts?.regular,
+      fonts?.medium,
+      fonts?.semiBold,
+      fonts?.bold,
+      fonts?.extraBold,
+    ],
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const names = Object.keys(fontVariables);
+
+    // With no configured font this is an empty map, so both loops are no-ops and
+    // the document root is never touched.
+    names.forEach((name) => root.style.setProperty(name, fontVariables[name]));
+
+    return () => {
+      names.forEach((name) => root.style.removeProperty(name));
+    };
+  }, [fontVariables]);
+
+  return fontVariables;
+}
+
 type Theme = 'light' | 'dark';
 
 export const ThemeContext = createContext<{
@@ -100,10 +148,11 @@ export const ThemeContext = createContext<{
   setDefaultTheme: () => {},
 });
 
-export const ThemeProvider: React.FC<PropsWithChildren<{ config?: Config }>> = ({
-  children,
-  config,
-}) => {
+export const ThemeProvider: React.FC<
+  PropsWithChildren<{ config?: Config; fonts?: AmityFontConfig }>
+> = ({ children, config, fonts }) => {
+  useFontFamilyVariables(fonts);
+
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
   const isDefaultTheme = config?.preferred_theme === 'default' || !config?.preferred_theme;
 
