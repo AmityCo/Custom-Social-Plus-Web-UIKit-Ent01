@@ -3,6 +3,7 @@ import { Button } from '~/v4/core/natives/Button';
 import { Title } from '~/v4/social/elements/Title';
 import { useUser } from '~/v4/core/hooks/objects/useUser';
 import { useAmityComponent } from '~/v4/core/hooks/uikit';
+import { useUserCapabilities } from '~/v4/core/hooks/useUserCapabilities';
 import { PollButton } from '~/v4/social/elements/PollButton';
 import { ImageButton } from '~/v4/social/elements/ImageButton';
 import { UserAvatar } from '~/v4/social/elements/UserAvatar';
@@ -32,6 +33,7 @@ export function PostComposer({
   const { openPopup } = usePopupContext();
   const { user } = useUser({ userId: currentUserId, shouldCall: !isVisitorOrBot });
   const { accessibilityId, themeStyles } = useAmityComponent({ pageId, componentId });
+  const { canPostVideo } = useUserCapabilities();
 
   const handlePostClick = () => {
     if (onClickPost) return onClickPost();
@@ -92,13 +94,15 @@ export function PostComposer({
         defaultIconClassName={styles.postComposer__button}
         textId=""
       />
-      <VideoButton
-        onPress={handlePostClick}
-        pageId={pageId}
-        componentId={componentId}
-        defaultIconClassName={styles.postComposer__button}
-        textId=""
-      />
+      {canPostVideo && (
+        <VideoButton
+          onPress={handlePostClick}
+          pageId={pageId}
+          componentId={componentId}
+          defaultIconClassName={styles.postComposer__button}
+          textId=""
+        />
+      )}
       <PollButton onPress={handlePollClick} pageId="post_composer_page" componentId="poll_button" />
     </div>
   );

@@ -6,6 +6,7 @@ import { useNavigation } from '~/v4/core/providers/NavigationProvider';
 import { Description } from '~/v4/social/elements/Description/Description';
 import { ExploreCreateCommunity } from '~/v4/social/elements/ExploreCreateCommunity/ExploreCreateCommunity';
 import { ExploreEmptyImage } from '~/v4/social/elements/ExploreEmptyImage/ExploreEmptyImage';
+import { useUserCapabilities } from '~/v4/core/hooks/useUserCapabilities';
 import styles from './ExploreEmpty.module.css';
 
 type ExploreEmptyProps = {
@@ -17,6 +18,7 @@ export function ExploreEmpty({ pageId = '*' }: ExploreEmptyProps) {
 
   const { goToCreateCommunityPage } = useNavigation();
   const { themeStyles, accessibilityId } = useAmityComponent({ componentId, pageId });
+  const { canCreateCommunity } = useUserCapabilities();
 
   return (
     <div className={styles.exploreEmpty} style={themeStyles} data-testid={accessibilityId}>
@@ -29,11 +31,13 @@ export function ExploreEmpty({ pageId = '*' }: ExploreEmptyProps) {
         />
         <Description pageId={pageId} componentId={componentId} />
       </div>
-      <ExploreCreateCommunity
-        pageId={pageId}
-        componentId={componentId}
-        onClick={() => goToCreateCommunityPage?.({ mode: AmityCommunitySetupPageMode.CREATE })}
-      />
+      {canCreateCommunity && (
+        <ExploreCreateCommunity
+          pageId={pageId}
+          componentId={componentId}
+          onClick={() => goToCreateCommunityPage?.({ mode: AmityCommunitySetupPageMode.CREATE })}
+        />
+      )}
     </div>
   );
 }

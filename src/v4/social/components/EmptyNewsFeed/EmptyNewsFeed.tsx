@@ -13,6 +13,7 @@ import { AmityCommunitySetupPageMode } from '~/v4/social/pages/CommunitySetupPag
 import { Divider } from '~/v4/social/elements/Divider';
 import { useResponsive } from '~/v4/core/hooks/useResponsive';
 import { PostComposer } from '~/v4/social/components/PostComposer';
+import { useUserCapabilities } from '~/v4/core/hooks/useUserCapabilities';
 
 interface EmptyNewsfeedProps {
   pageId?: string;
@@ -30,6 +31,7 @@ export function EmptyNewsfeed({ pageId = '*' }: EmptyNewsfeedProps) {
   });
 
   const { isDesktop } = useResponsive();
+  const { canCreateCommunity } = useUserCapabilities();
 
   if (isExcluded) return null;
 
@@ -53,11 +55,13 @@ export function EmptyNewsfeed({ pageId = '*' }: EmptyNewsfeedProps) {
           componentId={componentId}
           onClick={() => setActiveTab(HomePageTab.Communities)}
         />
-        <CreateCommunityButton
-          pageId={pageId}
-          componentId={componentId}
-          onClick={() => goToCreateCommunityPage?.({ mode: AmityCommunitySetupPageMode.CREATE })}
-        />
+        {canCreateCommunity && (
+          <CreateCommunityButton
+            pageId={pageId}
+            componentId={componentId}
+            onClick={() => goToCreateCommunityPage?.({ mode: AmityCommunitySetupPageMode.CREATE })}
+          />
+        )}
       </div>
     </div>
   );

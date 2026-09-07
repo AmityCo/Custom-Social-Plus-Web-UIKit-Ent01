@@ -9,6 +9,7 @@ import { AmityCommunitySetupPageMode } from '~/v4/social/pages';
 import { Explore, MyCommunities } from '~/v4/social/components';
 import { useConfig } from '~/v4/social/providers/ConfigProvider';
 import { useNavigation } from '~/v4/core/providers/NavigationProvider';
+import { useUserCapabilities } from '~/v4/core/hooks/useUserCapabilities';
 import styles from './Communities.module.css';
 
 enum CommunitiesTab {
@@ -24,6 +25,7 @@ export function Communities({ pageId }: CommunitiesProps) {
   const { isVisitorOrBot } = useSDK();
   const { goToCreateCommunityPage } = useNavigation();
   const { socialCommunityCreationButtonVisible, hideExplore } = useConfig();
+  const { canCreateCommunity } = useUserCapabilities();
   const [activeTab, setActiveTab] = useState<Key>(CommunitiesTab.Explore);
 
   const communitiesTitle = useString('amity_social_tab_tab_communities');
@@ -36,7 +38,7 @@ export function Communities({ pageId }: CommunitiesProps) {
         <div className={styles.communities__header} data-has-tabs={!isVisitorOrBot}>
           <Typography.Headline>{communitiesTitle}</Typography.Headline>
 
-          {socialCommunityCreationButtonVisible && (
+          {socialCommunityCreationButtonVisible && canCreateCommunity && (
             <Button
               icon={<Plus />}
               variant="default"

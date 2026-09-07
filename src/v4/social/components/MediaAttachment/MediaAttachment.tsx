@@ -7,6 +7,7 @@ import { VideoButton } from '~/v4/social/elements/VideoButton';
 import styles from './MediaAttachment.module.css';
 import { ProductTagActionButton } from '~/v4/social/features/product-tagged';
 import { useResponsive } from '~/v4/core/hooks/useResponsive';
+import { useUserCapabilities } from '~/v4/core/hooks/useUserCapabilities';
 
 const MAX_UPLOAD_MEDIA = 10;
 
@@ -36,6 +37,11 @@ export function MediaAttachment({
   const componentId = 'media_attachment';
   const { themeStyles, accessibilityId, isExcluded } = useAmityComponent({ pageId, componentId });
   const { isDesktop } = useResponsive();
+  const { canPostVideo } = useUserCapabilities();
+
+  // Combined with the caller's existing flag rather than replacing it: video is
+  // shown only when the caller asked for it AND the user may post video.
+  const isVisibleVideoAllowed = isVisibleVideo && canPostVideo;
 
   if (isExcluded) return null;
 
@@ -45,7 +51,7 @@ export function MediaAttachment({
       <div className={styles.mediaAttachment__actionButton_wrapper}>
         <div
           className={clsx(
-            !isVisibleImage || !isVisibleVideo || !isVisibleCamera
+            !isVisibleImage || !isVisibleVideoAllowed || !isVisibleCamera
               ? styles.mediaAttachment__wrapMedia_2items
               : styles.mediaAttachment__wrapMedia,
           )}
@@ -55,7 +61,7 @@ export function MediaAttachment({
               pageId={pageId}
               componentId={componentId}
               isVisibleImage={isVisibleImage}
-              isVisibleVideo={isVisibleVideo}
+              isVisibleVideo={isVisibleVideoAllowed}
               onVideoFileChange={onVideoFileChange}
               onImageFileChange={onImageFileChange}
               isDisabled={!!totalMedia && totalMedia >= MAX_UPLOAD_MEDIA}
@@ -72,7 +78,7 @@ export function MediaAttachment({
             />
           )}
 
-          {isVisibleVideo && (
+          {isVisibleVideoAllowed && (
             <VideoButton
               pageId={pageId}
               componentId={componentId}

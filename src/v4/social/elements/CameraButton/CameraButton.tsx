@@ -5,6 +5,7 @@ import { useAmityElement } from '~/v4/core/hooks/uikit';
 import styles from './CameraButton.module.css';
 import clsx from 'clsx';
 import { Button } from '~/v4/core/natives/Button';
+import { useUserCapabilities } from '~/v4/core/hooks/useUserCapabilities';
 
 interface CameraButtonProps {
   pageId: string;
@@ -66,6 +67,7 @@ export function CameraButton({
   onImageFileChange,
 }: CameraButtonProps) {
   const elementId = 'camera_button';
+  const { canPostVideo } = useUserCapabilities();
   const {
     themeStyles,
     isExcluded,
@@ -137,7 +139,12 @@ export function CameraButton({
             ? 'video/*,image/*'
             : isVisibleImage
               ? 'image/png,image/jpg'
-              : 'video/*'
+              : canPostVideo
+                ? 'video/*'
+                : // Video-only callers fall through to here. Hiding the video
+                  // BUTTON does not close this input, so a normal user could
+                  // otherwise still pick a video through the camera/media picker.
+                  'image/png,image/jpg'
         }
         capture={
           captureMode ??

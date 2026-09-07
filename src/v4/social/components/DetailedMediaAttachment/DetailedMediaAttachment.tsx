@@ -3,6 +3,7 @@ import { useAmityComponent } from '~/v4/core/hooks/uikit';
 import { CameraButton } from '~/v4/social/elements/CameraButton';
 import { ImageButton } from '~/v4/social/elements/ImageButton/ImageButton';
 import { VideoButton } from '~/v4/social/elements/VideoButton/VideoButton';
+import { useUserCapabilities } from '~/v4/core/hooks/useUserCapabilities';
 import styles from './DetailedMediaAttachment.module.css';
 
 const MAX_UPLOAD_MEDIA = 10;
@@ -28,6 +29,11 @@ export function DetailedMediaAttachment({
 }: DetailedMediaAttachmentProps) {
   const componentId = 'detailed_media_attachment';
   const { themeStyles, accessibilityId, isExcluded } = useAmityComponent({ pageId, componentId });
+  const { canPostVideo } = useUserCapabilities();
+
+  // Combined with the caller's existing flag rather than replacing it: video is
+  // shown only when the caller asked for it AND the user may post video.
+  const isVisibleVideoAllowed = isVisibleVideo && canPostVideo;
 
   if (isExcluded) return null;
 
@@ -43,7 +49,7 @@ export function DetailedMediaAttachment({
           pageId={pageId}
           componentId={componentId}
           isVisibleImage={isVisibleImage}
-          isVisibleVideo={isVisibleVideo}
+          isVisibleVideo={isVisibleVideoAllowed}
           isDisabled={!!totalMedia && totalMedia >= MAX_UPLOAD_MEDIA}
           onVideoFileChange={onVideoFileChange}
           onImageFileChange={onImageFileChange}
@@ -60,7 +66,7 @@ export function DetailedMediaAttachment({
         />
       )}
 
-      {isVisibleVideo && (
+      {isVisibleVideoAllowed && (
         <VideoButton
           pageId={pageId}
           componentId={componentId}

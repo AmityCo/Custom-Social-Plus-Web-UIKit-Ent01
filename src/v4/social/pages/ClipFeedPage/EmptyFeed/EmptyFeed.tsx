@@ -8,6 +8,7 @@ import { EmptyFeed as EmptyFeedIcon } from '~/v4/icons/EmptyFeed';
 import { ExploreCommunitiesButton } from '~/v4/social/elements/ExploreCommunitiesButton';
 import { CreateCommunityButton } from '~/v4/social/elements/CreateCommunityButton';
 import { useNavigation } from '~/v4/core/providers/NavigationProvider';
+import { useUserCapabilities } from '~/v4/core/hooks/useUserCapabilities';
 import { AmityCommunitySetupPageMode } from '~/v4/social/pages/CommunitySetupPage/CommunitySetupPage';
 import { Typography } from '~/v4/core/components';
 import { HomePageTab } from '~/v4/social/constants/HomePageTab';
@@ -31,6 +32,7 @@ export const EmptyFeed = ({
 }: EmptyFeedProps) => {
   const { goToCreateCommunityPage, goToSocialHomePage } = useNavigation();
   const { setActiveTab } = useLayoutContext();
+  const { canCreateCommunity } = useUserCapabilities();
   const { canCreateClip } = useClipFeatureFlags();
 
   return (
@@ -70,7 +72,7 @@ export const EmptyFeed = ({
             goToSocialHomePage?.();
           }}
         />
-        {!isVisitorOrBot && (
+        {!isVisitorOrBot && canCreateCommunity && (
           <CreateCommunityButton
             pageId={pageId}
             componentId={componentId}

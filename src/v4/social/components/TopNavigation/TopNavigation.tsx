@@ -10,6 +10,7 @@ import { AmityCommunitySetupPageMode } from '~/v4/social/pages/CommunitySetupPag
 import { NotificationTrayButton } from '~/v4/social/elements/NotificationTrayButton/NotificationTrayButton';
 import styles from './TopNavigation.module.css';
 import useSDK from '~/v4/core/hooks/useSDK';
+import { useUserCapabilities } from '~/v4/core/hooks/useUserCapabilities';
 
 export interface TopNavigationProps {
   pageId?: string;
@@ -31,6 +32,14 @@ export function TopNavigation({
   });
 
   const { isVisitorOrBot } = useSDK();
+  const { canCreateCommunity } = useUserCapabilities();
+
+  // On the My Communities tab this button creates a COMMUNITY; on every other
+  // tab it creates a POST. Only the community-creation case is gated, so post
+  // creation keeps working for everyone. The existing isVisitorOrBot gate below
+  // is preserved — this is an additional condition, not a replacement.
+  const isCommunityCreationTab = selectedTab == HomePageTab.MyCommunities;
+  const isPostCreationButtonVisible = !isCommunityCreationTab || canCreateCommunity;
 
   const handleGlobalSearchClick = () => {
     switch (selectedTab) {
@@ -67,7 +76,7 @@ export function TopNavigation({
           componentId={componentId}
           onPress={handleGlobalSearchClick}
         />
-        {!isVisitorOrBot && (
+        {!isVisitorOrBot && isPostCreationButtonVisible && (
           <PostCreationButton
             pageId={pageId}
             componentId={componentId}

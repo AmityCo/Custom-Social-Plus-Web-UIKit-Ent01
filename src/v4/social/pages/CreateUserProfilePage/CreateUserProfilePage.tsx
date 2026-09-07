@@ -429,8 +429,16 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
     setImage(e.target.files?.[0] || null);
   };
 
+  // A profile photo is required, but only when the host passes no
+  // `defaultAvatarImageUrl`: that URL is uploaded as the avatar when the user
+  // picks nothing (see the `else if (defaultAvatarImageUrl)` branch in the submit
+  // handler), so every profile still ends up with a photo and blocking Save would
+  // be pointless. No error text by design — this page leaves required fields
+  // unmarked and silent, exactly as the display name already is.
+  const isAvatarMissing = !image && !defaultAvatarImageUrl;
+
   // A display name is the minimum requirement to create a profile.
-  const isSaveDisabled = !displayName || isPending;
+  const isSaveDisabled = !displayName || isAvatarMissing || isPending;
 
   // What to render in the avatar circle: a freshly picked photo takes priority,
   // then the client-provided default image URL, otherwise nothing (placeholder).
