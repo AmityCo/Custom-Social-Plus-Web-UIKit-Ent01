@@ -5,6 +5,7 @@ import { CommunityVideoFeed } from '~/v4/social/components';
 import useCommunity from '~/v4/core/hooks/collections/useCommunity';
 import { useLayoutContext } from '~/v4/social/providers/LayoutProvider';
 import { MEDIA_TABS, MediaTabType } from '~/v4/social/constants/mediaTabs';
+import { useClipFeatureFlags } from '~/v4/social/hooks/useClipFeatureFlags';
 import { CommunityClipFeed } from '~/v4/social/components/CommunityClipFeed';
 import { CommunityImageFeed } from '~/v4/social/components/CommunityImageFeed';
 import LockPrivateContent from '~/v4/social/internal-components/LockPrivateContent';
@@ -17,9 +18,15 @@ type CommunityMediaFeedProps = {
 
 export const CommunityMediaFeed = ({ pageId = '*', communityId }: CommunityMediaFeedProps) => {
   const { linkToPost } = useLayoutContext();
-  const [activeTab, setActiveTab] = useState<MediaTabType>(
-    linkToPost ? linkToPost.mediaTab : MediaTabType.IMAGES,
-  );
+  const { canViewClipTab } = useClipFeatureFlags();
+  const tabs = canViewClipTab
+    ? MEDIA_TABS
+    : MEDIA_TABS.filter((t) => t.type !== MediaTabType.CLIPS);
+  // A deep link can point at the Clips tab; fall back to Photos when it's hidden.
+  const [activeTab, setActiveTab] = useState<MediaTabType>(() => {
+    const initial = linkToPost ? linkToPost.mediaTab : MediaTabType.IMAGES;
+    return initial === MediaTabType.CLIPS && !canViewClipTab ? MediaTabType.IMAGES : initial;
+  });
 
   const { community } = useCommunity({ communityId, shouldCall: !!communityId });
 
@@ -33,7 +40,7 @@ export const CommunityMediaFeed = ({ pageId = '*', communityId }: CommunityMedia
   return (
     <section className={styles.communityMediaFeed} data-testid="community-media-feed">
       <div className={styles.communityMediaFeed__tabs}>
-        {MEDIA_TABS.map((tab) => {
+        {tabs.map((tab) => {
           const tabLabel =
             tab.type === MediaTabType.IMAGES
               ? resolveString('amity_social_tab_tab_photos')
@@ -61,7 +68,7 @@ export const CommunityMediaFeed = ({ pageId = '*', communityId }: CommunityMedia
         {activeTab === MediaTabType.VIDEOS && (
           <CommunityVideoFeed pageId={pageId} communityId={communityId} />
         )}
-        {activeTab === MediaTabType.CLIPS && (
+        {activeTab === MediaTabType.CLIPS && canViewClipTab && (
           <CommunityClipFeed pageId={pageId} communityId={communityId} />
         )}
       </div>

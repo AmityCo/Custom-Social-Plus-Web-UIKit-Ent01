@@ -9,6 +9,7 @@ import { useNavigation } from '~/v4/core/providers/NavigationProvider';
 import { Mode } from '~/v4/social/pages/PostComposerPage/PostComposerPage';
 import { CreateClip } from '~/v4/icons/CreateClip';
 import { useClipContext } from '~/v4/social/providers/ClipProvider';
+import { useClipFeatureFlags } from '~/v4/social/hooks/useClipFeatureFlags';
 import { FileTrigger } from 'react-aria-components';
 import { PollTypeSelection } from '~/v4/social/components/PollTypeSelection';
 import { useDrawer } from '~/v4/core/providers/DrawerProvider';
@@ -26,6 +27,7 @@ export const FloatingActionButtonMenu: FC<FloatingActionButtonMenuProps> = ({
   const navigation = useNavigation();
   const { goToPostComposerPage, goToDraftClipPage } = navigation;
   const { file, setFile } = useClipContext();
+  const { canCreateClip } = useClipFeatureFlags();
 
   useEffect(() => {
     if (file) {
@@ -36,6 +38,8 @@ export const FloatingActionButtonMenu: FC<FloatingActionButtonMenuProps> = ({
       onPressMenu?.();
     }
   }, [file]);
+
+  const clipLabel = useString('amity_social_button_clip');
 
   const menus: {
     id: string;
@@ -80,24 +84,26 @@ export const FloatingActionButtonMenu: FC<FloatingActionButtonMenuProps> = ({
           </Typography.BodyBold>
         </Button>
       ))}
-      <FileTrigger
-        acceptedFileTypes={['video/*']}
-        onSelect={(e) => {
-          if (e) {
-            const files = Array.from(e as FileList);
-            if (files.length > 0) {
-              setFile(files[0]);
+      {canCreateClip && (
+        <FileTrigger
+          acceptedFileTypes={['video/*']}
+          onSelect={(e) => {
+            if (e) {
+              const files = Array.from(e as FileList);
+              if (files.length > 0) {
+                setFile(files[0]);
+              }
             }
-          }
-        }}
-      >
-        <Button className={styles.floatingActionButtonMenu__button}>
-          <CreateClip className={styles.floatingActionButtonMenu__icon} />
-          <Typography.BodyBold className={styles.floatingActionButtonMenu__label}>
-            {useString('amity_social_button_clip')}
-          </Typography.BodyBold>
-        </Button>
-      </FileTrigger>
+          }}
+        >
+          <Button className={styles.floatingActionButtonMenu__button}>
+            <CreateClip className={styles.floatingActionButtonMenu__icon} />
+            <Typography.BodyBold className={styles.floatingActionButtonMenu__label}>
+              {clipLabel}
+            </Typography.BodyBold>
+          </Button>
+        </FileTrigger>
+      )}
     </div>
   );
 };

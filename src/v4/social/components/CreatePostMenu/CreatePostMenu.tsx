@@ -3,6 +3,7 @@ import { CreatePostButton } from '~/v4/social/elements/CreatePostButton';
 import { CreatePollButton } from '~/v4/social/elements/CreatePollButton';
 import { CreateClipButton } from '~/v4/social/elements/CreateClipButton';
 import { usePageBehavior } from '~/v4/core/providers/PageBehaviorProvider';
+import { useClipFeatureFlags } from '~/v4/social/hooks/useClipFeatureFlags';
 import styles from './CreatePostMenu.module.css';
 
 type CreatePostMenuProps = {
@@ -14,6 +15,7 @@ export function CreatePostMenu({ pageId }: CreatePostMenuProps) {
 
   const { isDesktop } = useResponsive();
   const { AmityCreatePostMenuComponentBehavior } = usePageBehavior();
+  const { canCreateClip } = useClipFeatureFlags();
 
   return (
     <div className={styles.createPostMenu}>
@@ -27,7 +29,7 @@ export function CreatePostMenu({ pageId }: CreatePostMenuProps) {
         componentId={componentId}
         onClick={() => AmityCreatePostMenuComponentBehavior?.goToSelectPollPostTargetPage?.()}
       />
-      {!isDesktop && (
+      {!isDesktop && canCreateClip && (
         <CreateClipButton
           pageId={pageId}
           componentId={componentId}

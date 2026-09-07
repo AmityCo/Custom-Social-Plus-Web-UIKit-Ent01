@@ -249,11 +249,6 @@
     }
   },
   "feature_flags": {
-    "post": {
-      "clip": {
-        "can_view_tab": "singed_in_user_only"
-      }
-    },
     "chat": {
       "enabled_channel_types": ["conversation", "community"],
       "conversation_chat_user_actions": [

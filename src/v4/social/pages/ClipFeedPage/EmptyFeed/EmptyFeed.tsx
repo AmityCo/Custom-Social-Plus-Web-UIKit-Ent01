@@ -12,6 +12,7 @@ import { AmityCommunitySetupPageMode } from '~/v4/social/pages/CommunitySetupPag
 import { Typography } from '~/v4/core/components';
 import { HomePageTab } from '~/v4/social/constants/HomePageTab';
 import { useLayoutContext } from '~/v4/social/providers/LayoutProvider';
+import { useClipFeatureFlags } from '~/v4/social/hooks/useClipFeatureFlags';
 
 type EmptyFeedProps = {
   pageId?: string;
@@ -30,6 +31,7 @@ export const EmptyFeed = ({
 }: EmptyFeedProps) => {
   const { goToCreateCommunityPage, goToSocialHomePage } = useNavigation();
   const { setActiveTab } = useLayoutContext();
+  const { canCreateClip } = useClipFeatureFlags();
 
   return (
     <div className={styles.emptyFeed__container}>
@@ -39,7 +41,9 @@ export const EmptyFeed = ({
           onPress={onClickBack}
           defaultClassName={styles.emptyFeed__backButton}
         />
-        {!isVisitorOrBot && <CreateNewClipButton pageId={pageId} onClick={onPressCreateNewClip} />}
+        {!isVisitorOrBot && canCreateClip && (
+          <CreateNewClipButton pageId={pageId} onClick={onPressCreateNewClip} />
+        )}
       </div>
 
       <div className={styles.emptyFeed__content}>

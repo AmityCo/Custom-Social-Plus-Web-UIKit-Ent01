@@ -28,6 +28,7 @@ import useIntersectionObserver from '~/v4/core/hooks/useIntersectionObserver';
 import { CopyLinkButton } from '~/v4/social/elements/CopyLinkButton';
 import useCommunity from '~/v4/core/hooks/collections/useCommunity';
 import { useSDK } from '~/v4/core/hooks/useSDK';
+import { useClipFeatureFlags } from '~/v4/social/hooks/useClipFeatureFlags';
 import useFollowCount from '~/v4/core/hooks/objects/useFollowCount';
 import useSocialSettings from '~/v4/social/hooks/useSocialSettings';
 import styles from './ClipFeedPage.module.css';
@@ -49,6 +50,7 @@ export const ClipFeedPage = ({
   const pageId = 'clip_feed_page';
 
   const { isVisitorOrBot } = useSDK();
+  const { canCreateClip } = useClipFeatureFlags();
 
   const { accessibilityId, themeStyles } = useAmityPage({
     pageId,
@@ -575,7 +577,7 @@ export const ClipFeedPage = ({
                           targetId={post.targetId}
                           targetType={post.targetType}
                         />
-                        {!isVisitorOrBot && isShowInteractionMenu ? (
+                        {!isVisitorOrBot && canCreateClip && isShowInteractionMenu ? (
                           <CreateNewClipButton
                             onClick={() =>
                               AmityClipFeedPageBehavior?.goToSelectClipPostTargetPage?.({
@@ -652,7 +654,7 @@ export const ClipFeedPage = ({
                       targetId={post.targetId}
                       targetType={post.targetType}
                     />
-                    {!isVisitorOrBot && isShowInteractionMenu ? (
+                    {!isVisitorOrBot && canCreateClip && isShowInteractionMenu ? (
                       <CreateNewClipButton
                         onClick={() =>
                           AmityClipFeedPageBehavior?.goToSelectClipPostTargetPage?.({

@@ -4,6 +4,7 @@ import { FeedSourceEnum } from '@amityco/ts-sdk';
 import ChipButton from '~/v4/social/elements/ChipButton';
 import { useLayoutContext } from '~/v4/social/providers/LayoutProvider';
 import { MEDIA_TABS, MediaTabType } from '~/v4/social/constants/mediaTabs';
+import { useClipFeatureFlags } from '~/v4/social/hooks/useClipFeatureFlags';
 import { UserImageFeed, UserVideoFeed, UserClipFeed } from '~/v4/social/components';
 import styles from './MediaFeed.module.css';
 
@@ -21,14 +22,20 @@ export const UserMediaFeed = ({
   followStatus,
 }: UserMediaFeedProps) => {
   const { linkToPost } = useLayoutContext();
-  const [activeTab, setActiveTab] = useState<MediaTabType>(
-    linkToPost ? linkToPost.mediaTab : MediaTabType.IMAGES,
-  );
+  const { canViewClipTab } = useClipFeatureFlags();
+  const tabs = canViewClipTab
+    ? MEDIA_TABS
+    : MEDIA_TABS.filter((t) => t.type !== MediaTabType.CLIPS);
+  // A deep link can point at the Clips tab; fall back to Photos when it's hidden.
+  const [activeTab, setActiveTab] = useState<MediaTabType>(() => {
+    const initial = linkToPost ? linkToPost.mediaTab : MediaTabType.IMAGES;
+    return initial === MediaTabType.CLIPS && !canViewClipTab ? MediaTabType.IMAGES : initial;
+  });
 
   return (
     <section className={styles.userMediaFeed} data-testid="user-media-feed">
       <div className={styles.userMediaFeed__tabs}>
-        {MEDIA_TABS.map((tab) => {
+        {tabs.map((tab) => {
           const tabLabel =
             tab.type === MediaTabType.IMAGES
               ? resolveString('amity_social_tab_tab_photos')
@@ -66,7 +73,7 @@ export const UserMediaFeed = ({
             followStatus={followStatus}
           />
         )}
-        {activeTab === MediaTabType.CLIPS && (
+        {activeTab === MediaTabType.CLIPS && canViewClipTab && (
           <UserClipFeed
             pageId={pageId}
             userId={userId}

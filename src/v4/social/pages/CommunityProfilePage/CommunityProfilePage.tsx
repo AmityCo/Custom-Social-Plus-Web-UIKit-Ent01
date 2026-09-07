@@ -31,6 +31,7 @@ import { useDiscardPostCreation, useGetInvitation } from '~/v4/social/hooks';
 import { useResponsive } from '~/v4/core/hooks/useResponsive';
 import { CreateClipButton } from '~/v4/social/elements/CreateClipButton';
 import { useClipContext } from '~/v4/social/providers/ClipProvider';
+import { useClipFeatureFlags } from '~/v4/social/hooks/useClipFeatureFlags';
 import { useFeedScrollContext } from '~/v4/core/providers/FeedScrollProvider';
 import { Typography } from '~/v4/core/components';
 import { CommunityMediaFeed } from '~/v4/social/features/communities/profile/components/MediaFeed';
@@ -47,6 +48,7 @@ export const CommunityProfilePage: React.FC<CommunityProfileProps> = ({ communit
   const { discardPostCreation } = useDiscardPostCreation();
   const { currentUserId } = useSDK();
   const { file: clipFile, setFile: setClipFile } = useClipContext();
+  const { canCreateClip } = useClipFeatureFlags();
   const [isSticky, setIsSticky] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -264,7 +266,7 @@ export const CommunityProfilePage: React.FC<CommunityProfileProps> = ({ communit
                           });
                         }}
                       />
-                      {!isDesktop && (
+                      {!isDesktop && canCreateClip && (
                         <FileTrigger
                           onSelect={handleClipFileSelect}
                           acceptedFileTypes={['video/*']}
