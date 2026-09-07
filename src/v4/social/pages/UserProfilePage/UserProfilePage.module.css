@@ -30,6 +30,13 @@
   background-color: var(--asc-color-background-default);
 }
 
+/* Occupies the back button's slot so the display name stays centred when the
+   back button is hidden (Profile tab on the social home page). */
+.userProfilePage__backButtonSpacer {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
 .userProfilePage__displayName {
   opacity: 0;
   transition: opacity 0.3s;

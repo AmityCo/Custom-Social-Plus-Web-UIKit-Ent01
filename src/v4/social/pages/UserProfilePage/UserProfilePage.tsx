@@ -38,6 +38,12 @@ import { useDiscardPostCreation } from '~/v4/social/hooks';
 
 type UserProfilePageProps = {
   userId: string;
+  /**
+   * Hide the back button in the top bar. Set when the page is rendered inside a
+   * tab (the social home Profile tab) where the tab bar — not a back button —
+   * is how the user navigates away. Pushed navigations keep the back button.
+   */
+  hideBackButton?: boolean;
 };
 
 export const enum UserProfileTabs {
@@ -51,7 +57,7 @@ export const FeedSource = {
   USER: FeedSourceEnum.User,
 };
 
-export const UserProfilePage: React.FC<UserProfilePageProps> = ({ userId }) => {
+export const UserProfilePage: React.FC<UserProfilePageProps> = ({ userId, hideBackButton }) => {
   const pageId = 'user_profile_page';
   const containerRef = useRef<HTMLDivElement>(null);
   const { isDesktop } = useResponsive();
@@ -222,7 +228,11 @@ export const UserProfilePage: React.FC<UserProfilePageProps> = ({ userId }) => {
           onScroll={handleScroll}
         >
           <div className={styles.userProfilePage__topBar}>
-            <BackButton pageId={pageId} onPress={() => onBack()} />
+            {hideBackButton ? (
+              <div className={styles.userProfilePage__backButtonSpacer} />
+            ) : (
+              <BackButton pageId={pageId} onPress={() => onBack()} />
+            )}
             <Typography.TitleBold
               className={styles.userProfilePage__displayName}
               data-show={isScroll}

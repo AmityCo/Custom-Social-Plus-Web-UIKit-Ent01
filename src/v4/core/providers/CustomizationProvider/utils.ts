@@ -358,6 +358,7 @@ export const defaultConfig: DefaultConfig = {
     },
 
     'social_home_page/*/clipsfeed_button': {},
+    'social_home_page/*/my_profile_button': {},
     'global_search_page/*/*': {},
     'post_detail_page/*/back_button': {
       image: 'backButtonIcon',

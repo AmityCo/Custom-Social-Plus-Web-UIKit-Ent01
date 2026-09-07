@@ -142,6 +142,7 @@ export const ELEMENT_ID = {
   COMMUNITIES_BUTTON: 'communities_button',
   EVENTS_BUTTON: 'events_button',
   CLIPSFEED_BUTTON: 'clipsfeed_button',
+  MY_PROFILE_BUTTON: 'my_profile_button',
   ILLUSTRATION: 'illustration',
   TITLE: 'title',
   DESCRIPTION: 'description',

@@ -37,6 +37,7 @@ export function TopNavigation({
       case HomePageTab.ForYou:
       case HomePageTab.Newsfeed:
       case HomePageTab.Communities:
+      case HomePageTab.Profile:
         goToSocialGlobalSearchPage();
     }
   };

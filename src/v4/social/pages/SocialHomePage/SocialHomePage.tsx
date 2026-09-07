@@ -8,7 +8,6 @@ import { HomePageTab } from '~/v4/social/constants/HomePageTab';
 import { useLayoutContext } from '~/v4/social/providers/LayoutProvider';
 import { NoInternetConnectionHoc } from '~/v4/social/internal-components/NoInternetConnection/NoInternetConnectionHoc';
 import { usePageBehavior } from '~/v4/core/providers/PageBehaviorProvider';
-import { useCustomization } from '~/v4/core/providers/CustomizationProvider';
 import useSDK from '~/v4/core/hooks/useSDK';
 import { useForYouFeedCollection } from '~/v4/social/hooks/collections/useForYouFeedCollection';
 import useForYouFeedSetting from '~/v4/social/hooks/useForYouFeedSetting';
@@ -16,6 +15,7 @@ import { useSocialHomePageTab } from '~/v4/social/features/home/hooks';
 import { Newsfeed } from '~/v4/social/components/Newsfeed';
 import { ForYouFeed } from '~/v4/social/features/for-you';
 import { Communities } from '~/v4/social/internal-components/Communities/Communities';
+import { UserProfilePage } from '~/v4/social/pages/UserProfilePage';
 import { Skeleton } from '~/v4/core/components/Skeleton/Skeleton';
 import { PostContentSkeleton } from '~/v4/social/components/PostContent';
 import { Divider } from '~/v4/social/elements/Divider';
@@ -27,7 +27,6 @@ import { ELEMENT_ID, PAGE_ID } from '~/v4/constants/customization';
 export function SocialHomePage({ activeTab: initialActiveTab }: { activeTab?: HomePageTab }) {
   const pageId = 'social_home_page';
   const { isVisitorOrBot, currentUserId } = useSDK();
-  const { config } = useCustomization();
   const { themeStyles } = useAmityPage({
     pageId,
   });
@@ -36,6 +35,7 @@ export function SocialHomePage({ activeTab: initialActiveTab }: { activeTab?: Ho
 
   const { activeTab, setActiveTab } = useLayoutContext();
   const { AmitySocialHomePageBehavior } = usePageBehavior();
+  const { isDesktop } = useResponsive();
 
   const { forYouFeedSetting, isPending: isForYouFeedSettingPending } = useForYouFeedSetting({
     shouldCall: !isVisitorOrBot,
@@ -110,6 +110,16 @@ export function SocialHomePage({ activeTab: initialActiveTab }: { activeTab?: Ho
     }
   }, [isForYouTabVisible, activeTab, setActiveTab]);
 
+  // The Profile tab only exists in the mobile tab bar, which is hidden on
+  // desktop. Without this, resizing up would strand the user on a profile with
+  // no visible tabs to leave it.
+  useEffect(() => {
+    if (activeTab !== HomePageTab.Profile) return;
+    if (isDesktop || !currentUserId) {
+      setActiveTab(HomePageTab.Newsfeed);
+    }
+  }, [isDesktop, activeTab, currentUserId, setActiveTab]);
+
   const handleClickButton = () => {
     setIsShowCreatePostMenu((prev) => !prev);
   };
@@ -136,6 +146,7 @@ export function SocialHomePage({ activeTab: initialActiveTab }: { activeTab?: Ho
 
   const handleTabClick = useCallback(
     (tab: HomePageTab) => {
+      if (tab === HomePageTab.Profile && !currentUserId) return;
       setActiveTab(tab);
       if (tab === HomePageTab.Clips) {
         AmitySocialHomePageBehavior?.goToClipFeedPage?.({});
@@ -143,12 +154,12 @@ export function SocialHomePage({ activeTab: initialActiveTab }: { activeTab?: Ho
       }
       setPersistedTab(tab);
     },
-    [setActiveTab, AmitySocialHomePageBehavior, setPersistedTab],
+    [setActiveTab, AmitySocialHomePageBehavior, setPersistedTab, currentUserId],
   );
 
   const renderChipButtons = () => {
-    const viewableUserType = config?.feature_flags?.post?.clip?.can_view_tab;
-    const hideClipFeedTab = isVisitorOrBot && viewableUserType !== 'all';
+    // Visitors and bots have no profile of their own to open.
+    const isProfileTabVisible = !isVisitorOrBot && !!currentUserId;
 
     return (
       <div className={styles.socialHomePage__tabs}>
@@ -177,13 +188,13 @@ export function SocialHomePage({ activeTab: initialActiveTab }: { activeTab?: Ho
           onPress={() => handleTabClick(HomePageTab.Communities)}
           textId="amity_social_button_social_home_communities_button"
         />
-        {!hideClipFeedTab && (
+        {isProfileTabVisible && (
           <ChipButton
             pageId={PAGE_ID.SOCIAL_HOME_PAGE}
-            elementId={ELEMENT_ID.CLIPSFEED_BUTTON}
-            isActive={activeTab === HomePageTab.Clips}
-            onPress={() => handleTabClick(HomePageTab.Clips)}
-            textId="amity_social_button_social_home_clips_button"
+            elementId={ELEMENT_ID.MY_PROFILE_BUTTON}
+            isActive={activeTab === HomePageTab.Profile}
+            onPress={() => handleTabClick(HomePageTab.Profile)}
+            textId="amity_social_button_social_home_my_profile_button"
           />
         )}
       </div>
@@ -211,6 +222,9 @@ export function SocialHomePage({ activeTab: initialActiveTab }: { activeTab?: Ho
               {activeTab === HomePageTab.ForYou && <ForYouFeed pageId={pageId} />}
               {activeTab === HomePageTab.Newsfeed && <Newsfeed pageId={pageId} />}
               {activeTab === HomePageTab.Communities && <Communities pageId={pageId} />}
+              {activeTab === HomePageTab.Profile && currentUserId && (
+                <UserProfilePage userId={currentUserId} hideBackButton />
+              )}
             </>
           )}
         </div>
