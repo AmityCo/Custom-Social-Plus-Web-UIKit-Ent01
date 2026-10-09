@@ -429,16 +429,10 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
     setImage(e.target.files?.[0] || null);
   };
 
-  // A profile photo is required, but only when the host passes no
-  // `defaultAvatarImageUrl`: that URL is uploaded as the avatar when the user
-  // picks nothing (see the `else if (defaultAvatarImageUrl)` branch in the submit
-  // handler), so every profile still ends up with a photo and blocking Save would
-  // be pointless. No error text by design — this page leaves required fields
-  // unmarked and silent, exactly as the display name already is.
-  const isAvatarMissing = !image && !defaultAvatarImageUrl;
-
-  // A display name is the minimum requirement to create a profile.
-  const isSaveDisabled = !displayName || isAvatarMissing || isPending;
+  // A display name is the only requirement to create a profile. The photo is
+  // optional: with none picked, the profile is created without an avatar (or
+  // with `defaultAvatarImageUrl`, if the host passed one).
+  const isSaveDisabled = !displayName || isPending;
 
   // What to render in the avatar circle: a freshly picked photo takes priority,
   // then the client-provided default image URL, otherwise nothing (placeholder).
@@ -507,7 +501,7 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
             <Typography.BodyBold className={styles.createUserProfilePage__choosePhotoText}>
               {/* Once any avatar is shown — a freshly picked photo OR the
                   client-provided default URL — the action becomes a replacement
-                  ("Change a photo"). With nothing shown yet it's the initial
+                  ("Change Photo"). With nothing shown yet it's the initial
                   pick ("Choose a photo"). */}
               {useString(
                 displayedAvatarUrl
@@ -516,6 +510,9 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
               )}
             </Typography.BodyBold>
           </Button>
+          <Typography.Caption className={styles.createUserProfilePage__optional}>
+            {useString('amity_social_label_optional')}
+          </Typography.Caption>
         </div>
 
         <Form onSubmit={submitForm} className={styles.createUserProfilePage__form}>
