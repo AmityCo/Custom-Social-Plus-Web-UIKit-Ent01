@@ -14,7 +14,8 @@ import { useMutation } from '@tanstack/react-query';
 import { Client, FileRepository, UserRepository } from '@amityco/ts-sdk';
 import { useNotifications } from '~/v4/core/providers/NotificationProvider';
 import { UnderlineInput } from '~/v4/social/internal-components/UnderlineInput';
-import { ERROR_RESPONSE } from '~/v4/social/constants/errorResponse';
+import { useConfirmContext } from '~/v4/core/providers/ConfirmProvider';
+import { getProfileErrorDetail } from '~/v4/social/utils/getProfileErrorDetail';
 import { useNetworkState } from 'react-use';
 import useSDK from '~/v4/core/hooks/useSDK';
 import { joinPinnedCommunities } from '~/v4/social/hooks/usePinnedCommunities';
@@ -39,7 +40,7 @@ export interface CreateUserProfilePageProps {
    * Do NOT expect `about`/description or any device fields here; the backend
    * owns fields like `deviceId` (any id, e.g. a random UUID).
    *
-   * If it throws, the save flow fails via the page's normal error path (toast +
+   * If it throws, the save flow fails via the page's normal error path (popup +
    * `onError`). The host is responsible for mapping backend error codes
    * (banned / already-enrolled / retryable) — the UIKit does no error-code
    * branching.
@@ -106,7 +107,7 @@ export interface CreateUserProfilePageProps {
    * Fired when profile creation fails at any step of the save transaction —
    * resolving/minting the userId, `Client.login`, the avatar upload, or
    * `updateUser`. Receives the thrown error so the host can react (log it,
-   * show its own UI, retry, etc.). The UIKit still shows its own failure toast
+   * show its own UI, retry, etc.). The UIKit still shows its own failure popup
    * in addition to calling this. Mirrors `onCreated` for the failure path.
    */
   onError?: (error: Error) => void;
@@ -144,6 +145,7 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
 
   const { themeStyles } = useAmityPage({ pageId });
   const { online } = useNetworkState();
+  const { info } = useConfirmContext();
   const { client, getAuthToken: providerGetAuthToken } = useSDK();
 
   // Prefer the page-level getAuthToken prop; otherwise fall back to the one
@@ -187,7 +189,11 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
   // hook keeps a stable position across renders. Wrapping it in a function and
   // invoking that during render is a Rules-of-Hooks violation and crashes on the
   // re-render that mutate() triggers (pending -> settled).
-  const { mutateAsync: mutateCreateUserProfile, isPending } = useMutation({
+  //
+  // `mutate`, not `mutateAsync`: every failure is handled in onError (host
+  // callback + popup), and an un-awaited mutateAsync would also leak it to the
+  // host app as an unhandled promise rejection.
+  const { mutate: mutateCreateUserProfile, isPending } = useMutation({
     mutationFn: async () => {
       // Resolve the userId first, as the first step of the save transaction.
       // The host either knows it up front (`userId`), enrolls the user via its
@@ -386,23 +392,13 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
     },
     onError: (error) => {
       // Hand the failure back to the host so it can react (log, retry, show its
-      // own UI). Fires for every failure path, alongside the UIKit's own toast.
+      // own UI). Fires for every failure path, before the UIKit's own popup.
       onError?.(error instanceof Error ? error : new Error(String(error)));
 
-      if (error instanceof Error && error.message.includes(ERROR_RESPONSE.IMAGE_NUDITY)) {
-        notification.info({
-          content: resolveString('amity_social_modal_dialog_image_upload_error'),
-        });
-        return;
-      }
-      if (error.message.includes(ERROR_RESPONSE.BLOCKED_WORD)) {
-        notification.info({
-          content: resolveString('amity_social_user_profile_blocked_word_error'),
-        });
-        return;
-      }
-      notification.info({
-        content: resolveString('amity_social_toast_snackbar_profile_save_failed'),
+      info({
+        pageId: pageId,
+        type: 'info',
+        ...getProfileErrorDetail(error, 'create'),
       });
     },
   });
@@ -410,8 +406,11 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
   const submitForm = (e: any) => {
     e.preventDefault();
     if (!online) {
-      notification.info({
-        content: resolveString('amity_social_toast_snackbar_profile_save_failed'),
+      // Offline gets the same popup as a request that got no response.
+      info({
+        pageId: pageId,
+        type: 'info',
+        ...getProfileErrorDetail(new Error('Network Error'), 'create'),
       });
       return;
     }
@@ -429,16 +428,10 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
     setImage(e.target.files?.[0] || null);
   };
 
-  // A profile photo is required, but only when the host passes no
-  // `defaultAvatarImageUrl`: that URL is uploaded as the avatar when the user
-  // picks nothing (see the `else if (defaultAvatarImageUrl)` branch in the submit
-  // handler), so every profile still ends up with a photo and blocking Save would
-  // be pointless. No error text by design — this page leaves required fields
-  // unmarked and silent, exactly as the display name already is.
-  const isAvatarMissing = !image && !defaultAvatarImageUrl;
-
-  // A display name is the minimum requirement to create a profile.
-  const isSaveDisabled = !displayName || isAvatarMissing || isPending;
+  // A display name is the only requirement to create a profile. The photo is
+  // optional: with none picked, the profile is created without an avatar (or
+  // with `defaultAvatarImageUrl`, if the host passed one).
+  const isSaveDisabled = !displayName || isPending;
 
   // What to render in the avatar circle: a freshly picked photo takes priority,
   // then the client-provided default image URL, otherwise nothing (placeholder).
@@ -507,7 +500,7 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
             <Typography.BodyBold className={styles.createUserProfilePage__choosePhotoText}>
               {/* Once any avatar is shown — a freshly picked photo OR the
                   client-provided default URL — the action becomes a replacement
-                  ("Change a photo"). With nothing shown yet it's the initial
+                  ("Change Photo"). With nothing shown yet it's the initial
                   pick ("Choose a photo"). */}
               {useString(
                 displayedAvatarUrl
@@ -516,6 +509,9 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
               )}
             </Typography.BodyBold>
           </Button>
+          <Typography.Caption className={styles.createUserProfilePage__optional}>
+            {useString('amity_social_label_optional')}
+          </Typography.Caption>
         </div>
 
         <Form onSubmit={submitForm} className={styles.createUserProfilePage__form}>

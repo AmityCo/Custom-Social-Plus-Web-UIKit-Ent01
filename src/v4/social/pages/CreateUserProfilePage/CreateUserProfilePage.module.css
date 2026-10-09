@@ -54,7 +54,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgb(0 0 0 / 25%);
+  background-color: color-mix(in srgb, var(--asc-color-black) 25%, transparent);
 }
 
 .createUserProfilePage__icon {
@@ -72,6 +72,11 @@
 
 .createUserProfilePage__choosePhotoText {
   color: var(--asc-color-primary-default);
+}
+
+.createUserProfilePage__optional {
+  margin-top: -0.25rem;
+  color: var(--asc-color-base-shade3);
 }
 
 .createUserProfilePage__topSection {
@@ -112,7 +117,7 @@
     flex: 0;
     background-color: var(--asc-color-background-default);
     border-radius: 0.5rem;
-    border: 1px solid var(--asc-color-base-shade4, #ebecef);
+    border: 1px solid var(--asc-color-base-shade4);
   }
 
   .createUserProfilePage__topSection {

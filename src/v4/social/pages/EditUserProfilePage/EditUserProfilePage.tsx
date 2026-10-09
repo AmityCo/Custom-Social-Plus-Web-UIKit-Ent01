@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useString, resolveString } from '~/v4/core/localization';
+import { resolveString } from '~/v4/core/localization';
 import styles from './EditUserProfilePage.module.css';
 import Camera from '~/v4/icons/Camera';
 import { Form } from 'react-aria-components';
@@ -16,9 +16,9 @@ import { FileRepository, UserRepository } from '@amityco/ts-sdk';
 import { useNotifications } from '~/v4/core/providers/NotificationProvider';
 import { UnderlineInput } from '~/v4/social/internal-components/UnderlineInput';
 import { useConfirmContext } from '~/v4/core/providers/ConfirmProvider';
-import { ERROR_RESPONSE } from '~/v4/social/constants/errorResponse';
 import { useNetworkState } from 'react-use';
 import useUserSettings from '~/v4/social/hooks/useUserSettings';
+import { getProfileErrorDetail } from '~/v4/social/utils/getProfileErrorDetail';
 
 interface EditUserProfilePageProps {
   userId: string;
@@ -56,21 +56,13 @@ export const EditUserProfilePage: React.FC<EditUserProfilePageProps> = ({ userId
       const { data } = await FileRepository.uploadImage(formData);
       setNewImage(data[0]);
     } catch (error) {
-      if (error instanceof Error && error.message.includes(ERROR_RESPONSE.IMAGE_NUDITY)) {
-        info({
-          pageId: pageId,
-          type: 'info',
-          title: useString('amity_social_button_inappropriate_image'),
-          content: useString('amity_social_modal_dialog_image_upload_error'),
-        });
-      } else {
-        info({
-          pageId: pageId,
-          type: 'info',
-          title: useString('amity_social_upload_image_failed'),
-          content: useString('amity_social_label_please_try_again'),
-        });
-      }
+      // Matched by code, not exact message, so any rejection (nudity 500000,
+      // suggestive/violent 400314) gets the same detail as the create page.
+      info({
+        pageId: pageId,
+        type: 'info',
+        ...getProfileErrorDetail(error, 'edit'),
+      });
     }
   };
 
@@ -95,29 +87,21 @@ export const EditUserProfilePage: React.FC<EditUserProfilePageProps> = ({ userId
       onSuccess: () => {
         onBack();
         notification.success({
-          content: useString('amity_social_toast_snackbar_profile_updated'),
+          content: resolveString('amity_social_toast_snackbar_profile_updated'),
         });
       },
       onError: (error) => {
-        if (
-          error.message === 'Amity SDK (400301): Only administrator can update user display name.'
-        ) {
-          notification.info({ content: resolveString('amity_social_toast_edit_user_admin_only') });
-          return;
-        }
-        if (error.message.includes(ERROR_RESPONSE.BLOCKED_WORD)) {
-          notification.info({
-            content: useString('amity_social_user_profile_blocked_word_error'),
-          });
-          return;
-        }
-        notification.info({
-          content: useString('amity_social_toast_snackbar_profile_save_failed'),
+        info({
+          pageId: pageId,
+          type: 'info',
+          ...getProfileErrorDetail(error, 'edit'),
         });
       },
     });
 
-  const { mutateAsync: mutateUpdateEditUserProfile, isPending } = useMutateEditUserProfile();
+  // `mutate`, not `mutateAsync`: failures are shown by onError, and an
+  // un-awaited mutateAsync would also leak them as unhandled rejections.
+  const { mutate: mutateUpdateEditUserProfile, isPending } = useMutateEditUserProfile();
 
   const submitForm = (e: any) => {
     const updatedValue = {
@@ -127,8 +111,11 @@ export const EditUserProfilePage: React.FC<EditUserProfilePageProps> = ({ userId
     };
     e.preventDefault();
     if (!online) {
-      notification.info({
-        content: useString('amity_social_toast_snackbar_profile_save_failed'),
+      // Offline gets the same popup as a request that got no response.
+      info({
+        pageId: pageId,
+        type: 'info',
+        ...getProfileErrorDetail(new Error('Network Error'), 'edit'),
       });
       return;
     }
@@ -158,13 +145,13 @@ export const EditUserProfilePage: React.FC<EditUserProfilePageProps> = ({ userId
       confirm({
         pageId: pageId,
         type: 'confirm',
-        title: useString('amity_social_modal_community_setup_dialog_leave_edit_title'),
-        content: useString('amity_social_modal_community_setup_dialog_leave_edit_description'),
+        title: resolveString('amity_social_modal_community_setup_dialog_leave_edit_title'),
+        content: resolveString('amity_social_modal_community_setup_dialog_leave_edit_description'),
         onOk: () => {
           onBack();
         },
-        okText: useString('amity_social_modal_dialog_discard_button'),
-        cancelText: useString('amity_social_modal_dialog_cancel_button'),
+        okText: resolveString('amity_social_modal_dialog_discard_button'),
+        cancelText: resolveString('amity_social_modal_dialog_cancel_button'),
       });
     else onBack();
   };

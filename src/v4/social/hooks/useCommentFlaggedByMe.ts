@@ -4,15 +4,19 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNotifications } from '~/v4/core/providers/NotificationProvider';
 import { useResponsive } from '~/v4/core/hooks/useResponsive';
 import { resolveString } from '~/v4/core/localization';
+import { flagContent } from '~/v4/core/utils/flagContent';
 
 export const useCommentFlaggedByMe = ({
   commentId,
   reasonReport,
+  reasonDetail,
   onCloseMenu,
   isReplyComment,
 }: {
   commentId: string;
   reasonReport?: Amity.ContentFlagReason;
+  /** The reporter's own words, sent with Others. */
+  reasonDetail?: string;
   onCloseMenu?: () => void;
   isReplyComment?: boolean;
 }): {
@@ -39,7 +43,16 @@ export const useCommentFlaggedByMe = ({
   const { mutateAsync: mutateReportComment, isPending: isFlagLoading } = useMutation({
     mutationFn: async () => {
       if (commentId == null) return;
-      return CommentRepository.flagComment(commentId, reasonReport);
+      const flagged = await flagContent('comment', commentId, {
+        reason: reasonReport,
+        detail: reasonDetail,
+      });
+      // The SDK's flagComment cached the updated comment; the direct call does
+      // not. Refetch it so its new flagCount reaches the cache, which the feed
+      // card's inline comment reads to hide reported comments. Best effort: a
+      // failed refresh must not turn a filed report into a failure.
+      CommentRepository.getCommentByIds([commentId]).catch(() => {});
+      return flagged;
     },
     onSuccess: () => {
       success({
