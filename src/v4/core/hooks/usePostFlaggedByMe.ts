@@ -6,10 +6,12 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import useSDK from './useSDK';
+import { flagContent } from '~/v4/core/utils/flagContent';
 
 export const usePostFlaggedByMe = ({
   post,
   reasonReport,
+  reasonDetail,
   isFlaggable,
   onReportSuccess,
   onReportError,
@@ -18,6 +20,8 @@ export const usePostFlaggedByMe = ({
 }: {
   post?: Amity.Post;
   reasonReport?: Amity.ContentFlagReason;
+  /** The reporter's own words, sent with Others. */
+  reasonDetail?: string;
   isFlaggable: boolean;
   onReportSuccess?: () => void;
   onReportError?: (error: Error) => void;
@@ -46,7 +50,10 @@ export const usePostFlaggedByMe = ({
   const { mutateAsync: mutateReportPost, isPending } = useMutation({
     networkMode: 'always',
     mutationFn: async () => {
-      return PostRepository.flagPost(post?.postId ?? '', reasonReport);
+      return flagContent('post', post?.postId ?? '', {
+        reason: reasonReport,
+        detail: reasonDetail,
+      });
     },
     onMutate: async () => {
       await queryClient.cancelQueries({
