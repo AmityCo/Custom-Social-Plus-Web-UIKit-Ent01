@@ -239,7 +239,27 @@ export interface PageBehavior {
   AmityMyCommunitiesComponentBehavior?: {
     goToCommunitySetupPage?(context: { mode: AmityCommunitySetupPageMode }): void;
   };
+  AmityContentReportReasonComponentBehavior?: {
+    /**
+     * Called when "Continue to Intellectual Property Policy" is pressed, once a
+     * post, comment or reply has been reported for intellectual property
+     * infringement. Open your policy page or claim form here; the guest pastes
+     * the content ID into it. Called after the report sheet has started to
+     * close, from the press itself, so `window.open` is not blocked.
+     *
+     * Without it, the dialog still shows the content ID to copy, with a Close
+     * button and no Continue.
+     */
+    goToIntellectualPropertyPolicy?(context: IntellectualPropertyReportContext): void;
+  };
 }
+
+export type IntellectualPropertyReportContext = {
+  /** The postId or commentId of the reported content. */
+  contentId: string;
+  /** A reply is flagged as a comment, but keeps its own type here. */
+  contentType: 'post' | 'comment' | 'reply';
+};
 
 const PageBehaviorContext = React.createContext<PageBehavior | undefined>(undefined);
 
@@ -848,6 +868,12 @@ export const PageBehaviorProvider: React.FC<PageBehaviorProviderProps> = ({
         }
         goToCreateCommunityPage?.(context);
       },
+    },
+    AmityContentReportReasonComponentBehavior: {
+      // Passed through as is, with no default: whether the host provided it
+      // decides if the intellectual property dialog has a Continue button.
+      goToIntellectualPropertyPolicy:
+        pageBehavior?.AmityContentReportReasonComponentBehavior?.goToIntellectualPropertyPolicy,
     },
   };
 

@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent, useEffect, useMemo } from 'react';
+import React, { useState, ChangeEvent, useEffect, useMemo, useRef } from 'react';
 import { useString, resolveString } from '~/v4/core/localization';
 import { ContentFlagReasonEnum } from '@amityco/ts-sdk';
 import clsx from 'clsx';
@@ -18,6 +18,13 @@ import { useCommentFlaggedByMe } from '~/v4/social/hooks/useCommentFlaggedByMe';
 import { useFlagMessageQuery } from '~/v4/chat/hooks/queries';
 import { useMessageObject } from '~/v4/chat/hooks/objects';
 import { useNetworkState } from 'react-use';
+import {
+  type IntellectualPropertyReportContext,
+  usePageBehavior,
+} from '~/v4/core/providers/PageBehaviorProvider';
+import { IntellectualPropertyDialog } from './IntellectualPropertyDialog';
+
+const INTELLECTUAL_PROPERTY_REASON = 'Intellectual property infringement';
 
 type ContentReportReasonProps = {
   pageId?: string;
@@ -50,10 +57,27 @@ export const ContentReportReason = ({
     undefined,
   );
   const [isError, setIsError] = useState(false);
+  const [isIntellectualPropertyDialogOpen, setIsIntellectualPropertyDialogOpen] = useState(false);
+  // The reason the report was filed with: the radios stay enabled while a post
+  // report is in flight, so the selection may have moved on by its success.
+  const submittedReasonRef = useRef<Amity.ContentFlagReason | undefined>(undefined);
   const { online } = useNetworkState();
   const { isDesktop } = useResponsive();
   const { success, info } = useNotifications();
   const { closePopup } = usePopupContext();
+  const { AmityContentReportReasonComponentBehavior } = usePageBehavior();
+  const goToIntellectualPropertyPolicy =
+    AmityContentReportReasonComponentBehavior?.goToIntellectualPropertyPolicy;
+
+  // A reply is flagged as a comment, but the host is told it is a reply.
+  const reportedContent: IntellectualPropertyReportContext | undefined = post
+    ? { contentId: post.postId, contentType: 'post' }
+    : comment
+      ? {
+          contentId: comment.commentId,
+          contentType: comment.parentId != null ? 'reply' : 'comment',
+        }
+      : undefined;
 
   const postReportedText = useString('amity_social_button_post_reported');
   const postReportFailedText = useString('amity_social_toast_post_report_failed');
@@ -79,6 +103,7 @@ export const ContentReportReason = ({
   };
 
   const handleSubmitReport = () => {
+    submittedReasonRef.current = selectedReason;
     if (post) return mutateReportPost();
     if (comment) return mutateReportComment();
     if (message)
@@ -103,6 +128,33 @@ export const ContentReportReason = ({
     onCloseMenu?.();
   };
 
+  /**
+   * After a successful report. The claim itself is filed outside the UIKit, so
+   * an intellectual property report keeps the sheet open under a dialog that
+   * hands the guest the content ID to copy. Without the host's policy callback
+   * the dialog offers only Copy and Close. Returns whether it opened; otherwise
+   * the caller closes the sheet as before.
+   */
+  const openIntellectualPropertyDialog = () => {
+    if (submittedReasonRef.current !== INTELLECTUAL_PROPERTY_REASON || !reportedContent) {
+      return false;
+    }
+    setIsIntellectualPropertyDialogOpen(true);
+    return true;
+  };
+
+  const closeIntellectualPropertyDialog = () => {
+    setIsIntellectualPropertyDialogOpen(false);
+    handleCloseReportReason();
+  };
+
+  const continueToIntellectualPropertyPolicy = () => {
+    closeIntellectualPropertyDialog();
+    // Straight from the press, so the host can open a new tab without the
+    // browser blocking it as a popup.
+    if (reportedContent) goToIntellectualPropertyPolicy?.(reportedContent);
+  };
+
   const {
     isLoading: isReportPostLoading,
     isPending: isReportPending,
@@ -114,6 +166,7 @@ export const ContentReportReason = ({
     isFlaggable: showReportPostButton,
     onReportSuccess: () => {
       success({ content: postReportedText });
+      if (openIntellectualPropertyDialog()) return;
       onCloseMenu?.();
       closePopup();
     },
@@ -148,7 +201,11 @@ export const ContentReportReason = ({
     commentId: comment?.commentId as string,
     reasonReport: selectedReason,
     reasonDetail: selectedReason === ContentFlagReasonEnum.Others ? otherReasonText : undefined,
-    onCloseMenu: handleCloseReportReason,
+    // Called after a successful report.
+    onCloseMenu: () => {
+      if (openIntellectualPropertyDialog()) return;
+      handleCloseReportReason();
+    },
     isReplyComment: comment?.parentId != null,
   });
 
@@ -195,7 +252,7 @@ export const ContentReportReason = ({
           // through the API directly (flagContent), so this is filed as the
           // reason itself. Messages still go through the SDK, which sends it as
           // reason "Others" with this text as the detail.
-          value: 'Intellectual property infringement',
+          value: INTELLECTUAL_PROPERTY_REASON,
           labelKey: 'amity_social_label_report_reason_intellectual_property',
         },
         {
@@ -317,6 +374,19 @@ export const ContentReportReason = ({
           </Button>
         )}
       </div>
+
+      {reportedContent && (
+        <IntellectualPropertyDialog
+          pageId={pageId}
+          isOpen={isIntellectualPropertyDialogOpen}
+          contentId={reportedContent.contentId}
+          contentType={reportedContent.contentType}
+          onContinue={
+            goToIntellectualPropertyPolicy ? continueToIntellectualPropertyPolicy : undefined
+          }
+          onCancel={closeIntellectualPropertyDialog}
+        />
+      )}
     </div>
   );
 };

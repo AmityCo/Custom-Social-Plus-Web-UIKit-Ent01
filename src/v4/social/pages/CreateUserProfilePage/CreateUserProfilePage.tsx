@@ -125,6 +125,9 @@ export interface CreateUserProfilePageProps {
   defaultAvatarImageUrl?: string;
 }
 
+// User search needs a 3-character keyword, so a shorter name could never be
+// found. Counted without spaces at either end.
+const MIN_DISPLAY_NAME_LENGTH = 3;
 const MAX_DISPLAY_NAME_LENGTH = 100;
 const MAX_ABOUT_LENGTH = 180;
 
@@ -155,6 +158,9 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
   const getAuthToken = getAuthTokenProp ?? providerGetAuthToken;
 
   const [displayName, setDisplayName] = useState<string | undefined>(undefined);
+  // What is checked and saved: the name without spaces at either end.
+  const trimmedDisplayName = displayName?.trim() ?? '';
+  const isDisplayNameTooShort = trimmedDisplayName.length < MIN_DISPLAY_NAME_LENGTH;
   const [description, setDescription] = useState<string | undefined>(undefined);
   // The avatar image is held locally (raw File + a preview URL) and only
   // uploaded AFTER login on save — FileRepository.uploadImage requires a
@@ -208,8 +214,8 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
       // device fields cross the UIKit boundary (the backend owns those).
       const resolvedUserId =
         userId ??
-        (await enrollProfile?.({ displayName })) ??
-        (await generateUserId?.({ displayName, about: description }));
+        (await enrollProfile?.({ displayName: trimmedDisplayName })) ??
+        (await generateUserId?.({ displayName: trimmedDisplayName, about: description }));
       if (!resolvedUserId) {
         throw new Error(
           'CreateUserProfilePage: no userId resolved — pass `userId`, an `enrollProfile`, or a `generateUserId` that returns one.',
@@ -234,8 +240,8 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
       const loginParams: Parameters<typeof Client.login>[0] = {
         userId: resolvedUserId,
       };
-      if (displayName) {
-        loginParams.displayName = displayName;
+      if (trimmedDisplayName) {
+        loginParams.displayName = trimmedDisplayName;
       }
       if (resolvedAuthToken && resolvedAuthToken.length > 0) {
         loginParams.authToken = resolvedAuthToken;
@@ -361,7 +367,7 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
 
       return {
         userId: resolvedUserId,
-        displayName: displayName || '',
+        displayName: trimmedDisplayName,
         about: description || undefined,
         imageUrl: avatarImageUrl,
       };
@@ -428,10 +434,15 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
     setImage(e.target.files?.[0] || null);
   };
 
-  // A display name is the only requirement to create a profile. The photo is
-  // optional: with none picked, the profile is created without an avatar (or
-  // with `defaultAvatarImageUrl`, if the host passed one).
-  const isSaveDisabled = !displayName || isPending;
+  // A display name of at least MIN_DISPLAY_NAME_LENGTH characters is the only
+  // requirement to create a profile. The photo is optional: with none picked,
+  // the profile is created without an avatar (or with `defaultAvatarImageUrl`,
+  // if the host passed one).
+  const isSaveDisabled = isDisplayNameTooShort || isPending;
+  // Not on the untouched field: only once something has been typed (even if it
+  // has since been deleted).
+  const showDisplayNameError = displayName !== undefined && isDisplayNameTooShort;
+  const displayNameTooShortText = useString('amity_social_error_user_display_name_too_short');
 
   // What to render in the avatar circle: a freshly picked photo takes priority,
   // then the client-provided default image URL, otherwise nothing (placeholder).
@@ -529,6 +540,8 @@ export const CreateUserProfilePage: React.FC<CreateUserProfilePageProps> = ({
               }
               showCounter={true}
               disabled={isPending}
+              isError={showDisplayNameError}
+              helperText={showDisplayNameError ? displayNameTooShortText : undefined}
             />
             <UnderlineInput
               name="userAbout"
