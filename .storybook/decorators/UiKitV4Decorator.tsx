@@ -4,6 +4,7 @@ import { AmityUIKitProvider } from '../../src/v4/core/providers';
 import { Preview } from '@storybook/react';
 import amityConfig from '../../amity-uikit.config.json';
 import { Config } from '../../src/v4/core/providers/CustomizationProvider';
+import { PageBehavior } from '../../src/v4/core/providers/PageBehaviorProvider';
 
 type AuthSignatureResponse = {
   signature: string;
@@ -15,6 +16,15 @@ type AuthSignatureResponse = {
 };
 
 const FALLBACK_USER = 'Web-Test';
+
+const pageBehavior: PageBehavior = {
+  AmityContentReportReasonComponentBehavior: {
+    // After an intellectual property report, open your own policy page or claim
+    // form here; you get `{ contentId, contentType }`. A placeholder until the
+    // client has a policy URL: Continue only closes the dialog.
+    goToIntellectualPropertyPolicy: () => {},
+  },
+};
 
 // ── Region configuration ─────────────────────────────────────────────────────
 // Maps the Storybook region label → SDK region string + defaults.
@@ -210,6 +220,7 @@ const decorator: NonNullable<Preview['decorators']>[number] = (Story, context) =
       getAuthSignature={args.secureMode ? getAuthSignature : undefined}
       socialCommunityCreationButtonVisible={args.socialCommunityCreationButtonVisible ?? true}
       hideExplore={args.hideExplore ?? false}
+      pageBehavior={pageBehavior}
     >
       <Story />
     </AmityUIKitProvider>

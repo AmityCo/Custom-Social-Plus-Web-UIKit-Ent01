@@ -1,0 +1,106 @@
+/*
+  The <dialog> itself is the card's frame, with no padding: a click whose
+  target is the dialog is then always a click on the backdrop.
+*/
+.dialog {
+  width: calc(100% - 2rem);
+  max-width: 20rem;
+  max-height: calc(100% - 2rem);
+  margin: auto;
+  padding: 0;
+  border: none;
+  border-radius: 0.875rem;
+  overflow-y: auto;
+  color: var(--asc-color-base-default);
+  background-color: var(--asc-color-background-default);
+  outline: none;
+}
+
+/* The same dim as the drawer's overlay, so the two stack evenly. */
+.dialog::backdrop {
+  background-color: var(--asc-color-transparent-black);
+}
+
+.dialog__card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+}
+
+.dialog__title {
+  text-align: center;
+}
+
+.dialog__description {
+  margin-top: 0.5rem;
+  text-align: center;
+  color: var(--asc-color-base-shade1);
+}
+
+.dialog__contentIdLabel {
+  margin-top: 1rem;
+  margin-bottom: 0.375rem;
+}
+
+.dialog__contentIdBox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--asc-color-base-shade4);
+  border-radius: 0.5rem;
+}
+
+/* An ID is read and compared character by character. */
+.dialog__contentId {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  word-break: break-all;
+  user-select: text;
+}
+
+.dialog__copyButton {
+  flex-shrink: 0;
+  gap: 0.25rem;
+  padding: 0.25rem;
+}
+
+.dialog__copyLabel {
+  display: grid;
+}
+
+.dialog__copyLabel > * {
+  grid-area: 1 / 1;
+}
+
+.dialog__copyLabel > [data-visible='false'] {
+  visibility: hidden;
+}
+
+.dialog__copyIcon {
+  width: 1rem;
+  height: 1rem;
+  fill: currentcolor;
+}
+
+.dialog__continueButton {
+  margin-top: 1rem;
+}
+
+/* Long enough to need two lines on a narrow card. */
+.dialog__continueLabel {
+  text-align: center;
+}
+
+.dialog__cancelButton {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+}
+
+/* Straight under the content ID box when there is no Continue button. */
+.dialog__cancelButton[data-alone='true'] {
+  margin-top: 0.75rem;
+}
