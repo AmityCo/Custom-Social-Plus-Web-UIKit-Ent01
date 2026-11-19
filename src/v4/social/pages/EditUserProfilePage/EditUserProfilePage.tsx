@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { resolveString } from '~/v4/core/localization';
+import { resolveString, useString } from '~/v4/core/localization';
 import styles from './EditUserProfilePage.module.css';
 import Camera from '~/v4/icons/Camera';
 import { Form } from 'react-aria-components';
@@ -24,6 +24,9 @@ interface EditUserProfilePageProps {
   userId: string;
 }
 
+// User search needs a 3-character keyword, so a shorter name could never be
+// found. Counted without spaces at either end.
+const MIN_DISPLAY_NAME_LENGTH = 3;
 const MAX_DISPLAY_NAME_LENGTH = 100;
 const MAX_ABOUT_LENGTH = 180;
 
@@ -43,6 +46,19 @@ export const EditUserProfilePage: React.FC<EditUserProfilePageProps> = ({ userId
   const [description, setDescription] = useState(user?.description || undefined);
   const [image, setImage] = useState<File | null>(null);
   const [newImage, setNewImage] = useState<Amity.File<'image'> | null>(null);
+
+  // Only an administrator may change a locked name. It is never sent then, so
+  // the length rule is skipped and the bio and photo can still be saved.
+  const isDisplayNameLocked = !userSettings?.isAllowUpdateDisplayName;
+  // What is checked and saved: the name without spaces at either end. Until the
+  // loaded name has been copied into state, the user's own name is checked, so
+  // the error does not flash on a name that is long enough.
+  const trimmedDisplayName = (displayName ?? user?.displayName ?? '').trim();
+  // An existing name that is already too short shows the error straight away:
+  // it has to change before anything else can be saved.
+  const isDisplayNameTooShort =
+    !!user && !isDisplayNameLocked && trimmedDisplayName.length < MIN_DISPLAY_NAME_LENGTH;
+  const displayNameTooShortText = useString('amity_social_error_user_display_name_too_short');
 
   useEffect(() => {
     user?.displayName && setDisplayName(user.displayName);
@@ -104,11 +120,15 @@ export const EditUserProfilePage: React.FC<EditUserProfilePageProps> = ({ userId
   const { mutate: mutateUpdateEditUserProfile, isPending } = useMutateEditUserProfile();
 
   const submitForm = (e: any) => {
-    const updatedValue = {
-      displayName: displayName !== user?.displayName ? displayName : undefined,
+    const updatedValue: Parameters<typeof UserRepository.updateUser>[1] = {
       description: description !== user?.description ? description : undefined,
       avatarFileId: newImage?.fileId,
     };
+    // Left out entirely when locked, even if the name differs from the saved
+    // one only by surrounding spaces.
+    if (!isDisplayNameLocked && displayName !== user?.displayName) {
+      updatedValue.displayName = trimmedDisplayName;
+    }
     e.preventDefault();
     if (!online) {
       // Offline gets the same popup as a request that got no response.
@@ -133,9 +153,15 @@ export const EditUserProfilePage: React.FC<EditUserProfilePageProps> = ({ userId
     setImage(e.target.files?.[0] || null);
   };
 
+  // A locked name cannot change, and does not stop the bio or photo saving,
+  // even when it is empty.
+  const isDisplayNameUnchanged =
+    isDisplayNameLocked ||
+    user?.displayName === displayName ||
+    (user?.displayName == undefined && displayName == '');
   const isNoEditing =
-    !displayName ||
-    ((user?.displayName === displayName || (user?.displayName == undefined && displayName == '')) &&
+    (!displayName && !isDisplayNameLocked) ||
+    (isDisplayNameUnchanged &&
       (user?.description === description ||
         (user?.description == undefined && description == '')) &&
       !newImage);
@@ -212,7 +238,9 @@ export const EditUserProfilePage: React.FC<EditUserProfilePageProps> = ({ userId
                 setDisplayName(e.target.value)
               }
               showCounter={true}
-              disabled={!userSettings?.isAllowUpdateDisplayName}
+              disabled={isDisplayNameLocked}
+              isError={isDisplayNameTooShort}
+              helperText={isDisplayNameTooShort ? displayNameTooShortText : undefined}
             />
             <UnderlineInput
               name="userAbout"
@@ -228,7 +256,10 @@ export const EditUserProfilePage: React.FC<EditUserProfilePageProps> = ({ userId
               optional={true}
             />
           </div>
-          <UpdateUserProfileButton pageId={pageId} disabled={isNoEditing || isPending} />
+          <UpdateUserProfileButton
+            pageId={pageId}
+            disabled={isNoEditing || isDisplayNameTooShort || isPending}
+          />
         </Form>
       </div>
     </div>
